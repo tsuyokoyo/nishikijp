@@ -349,6 +349,7 @@ function dateKey(d) {
 async function fetchForecast() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${KIX_LAT}&longitude=${KIX_LON}` +
     `&hourly=temperature_2m,precipitation,weathercode,wind_speed_10m,wind_direction_10m` +
+    `&models=jma_gsm` +
     `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Open-Meteo取得失敗");
