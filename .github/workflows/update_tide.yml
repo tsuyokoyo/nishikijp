@@ -1,0 +1,37 @@
+name: Update tide data
+
+on:
+  schedule:
+    # 毎日 深夜1時(JST) = 前日16時(UTC) に実行
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+    # 手動実行もできるようにしておく
+
+permissions:
+  contents: write
+
+jobs:
+  update-tide:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch tide data
+        run: python fetch_tide.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tide_data.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update tide data"
+          git push
