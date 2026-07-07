@@ -23,13 +23,19 @@ def date_key(d: datetime.date) -> str:
     return d.strftime("%Y-%m-%d")
 
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+}
+
+
 def fetch_day(d: datetime.date):
     params = {
         "pc": TIDE_PC, "hc": TIDE_HC,
         "yr": d.year, "mn": d.month, "dy": d.day,
         "rg": "day",
     }
-    resp = requests.get(URL, params=params, timeout=15)
+    resp = requests.get(URL, params=params, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     data = resp.json()
     if data.get("status") != 1:
