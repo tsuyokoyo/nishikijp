@@ -192,7 +192,7 @@
 /* ===================== 設定 ===================== */
 const KIX_LAT = 34.433, KIX_LON = 135.232;   // 関空島
 const AMEDAS_CODE = "62101";                  // 関空島アメダス
-const TIDE_PC = 27, TIDE_HC = 3;              // 大阪府・岸和田(二色浜の代用)
+const TIDE_PC = 27, TIDE_HC = 3;              // 大阪府・岸和田(参考値。実際の取得はfetch_tide.py側で使用)
 const FORECAST_DAYS = 16;                     // Open-Meteoが返せる最大日数
 
 /*
@@ -304,14 +304,15 @@ async function fetchAmedasNow() {
   return { time: latest, windMs: station.wind ? station.wind[0] : null };
 }
 
-async function fetchTideForDate(d) {
-  const url = `https://api.tide736.net/get_tide.php?pc=${TIDE_PC}&hc=${TIDE_HC}` +
-    `&yr=${d.getFullYear()}&mn=${d.getMonth()+1}&dy=${d.getDate()}&rg=day`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("潮汐データ取得失敗");
-  const json = await res.json();
-  if (json.status !== 1) return null;
-  return json.tide.chart[dateKey(d)] || null;
+async function loadTideData() {
+  try {
+    const res = await fetch("tide_data.json");
+    if (!res.ok) throw new Error("not found");
+    return await res.json();
+  } catch (e) {
+    console.warn("tide_data.json の読み込みに失敗しました。", e);
+    return {};
+  }
 }
 
 /* ===================== 描画 ===================== */
@@ -380,15 +381,13 @@ async function render() {
     });
   }
 
-  // 潮汐は日付ごとに個別取得(APIが1日単位のため)
+  // 潮汐データ(GitHub Actionsが定期更新するtide_data.jsonから読み込む)
   const dateEntries = [...rowsByDate.values()];
-  const tideResults = await Promise.all(
-    dateEntries.map(entry => fetchTideForDate(entry.date).catch(() => null))
-  );
+  const tideData = await loadTideData();
 
-  const html = dateEntries.map((entry, idx) => {
+  const html = dateEntries.map((entry) => {
     const d = entry.date;
-    const tideDay = tideResults[idx];
+    const tideDay = tideData[dateKey(d)] || null;
     const rows = entry.rows;
 
     const rowsHtml = rows.map(r => `
