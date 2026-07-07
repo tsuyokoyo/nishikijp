@@ -352,6 +352,12 @@ async function fetchAmedasLatestTime() {
   return new Date(text.trim());
 }
 
+function amedasDirCodeToDeg(code) {
+  // 気象庁アメダスの風向コード(0=静穏, 1〜16=北から時計回り22.5度刻み)を角度に変換
+  if (code == null || code === 0) return null;
+  return (code - 1) * 22.5;
+}
+
 async function fetchAmedasNow() {
   const latest = await fetchAmedasLatestTime();
   const ts = latest.toISOString().replace(/[-:T]/g, "").slice(0, 12) + "00";
@@ -360,7 +366,48 @@ async function fetchAmedasNow() {
   const data = await res.json();
   const station = data[AMEDAS_CODE];
   if (!station) return null;
-  return { time: latest, windMs: station.wind ? station.wind[0] : null };
+  return {
+    time: latest,
+    windMs: station.wind ? station.wind[0] : null,
+    windDir: amedasDirCodeToDeg(station.windDirection ? station.windDirection[0] : null),
+  };
+}
+
+async function fetchAmedasHistoryToday() {
+  // 今日の実際の毎時観測値を取得する(3時間ブロック単位のAPIを使用)。
+  // 表示範囲が6〜19時のため、該当するブロックだけ取得すればよい。
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const dateStr = `${y}${m}${d}`;
+  const currentHour = now.getHours();
+  const blockStarts = [6, 9, 12, 15, 18].filter(bs => bs <= currentHour);
+
+  const result = {};
+  for (const bs of blockStarts) {
+    const h3 = String(bs).padStart(2, "0");
+    const url = `https://www.jma.go.jp/bosai/amedas/data/point/${AMEDAS_CODE}/${dateStr}_${h3}.json`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (let h = bs; h < bs + 3 && h <= currentHour; h++) {
+        const hh = String(h).padStart(2, "0");
+        const key = `${dateStr}${hh}0000`;
+        const entry = data[key];
+        if (entry && entry.wind) {
+          result[h] = {
+            windMs: entry.wind[0],
+            windDir: amedasDirCodeToDeg(entry.windDirection ? entry.windDirection[0] : null),
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`アメダス過去データ取得失敗(ブロック${h3}時)`, e);
+    }
+  }
+  return result;
 }
 
 async function loadTideData() {
@@ -418,11 +465,12 @@ async function render() {
   const container = document.getElementById("days-container");
   const now = new Date();
 
-  let forecast, amedasNow;
+  let forecast, amedasNow, amedasHistory;
   try {
-    [forecast, amedasNow] = await Promise.all([
+    [forecast, amedasNow, amedasHistory] = await Promise.all([
       fetchForecast(),
       fetchAmedasNow().catch(() => null),
+      fetchAmedasHistoryToday().catch(() => ({})),
     ]);
   } catch (e) {
     container.innerHTML = `<div class="error-msg">データ取得に失敗しました(${e.message})。時間をおいて再読み込みしてください。</div>`;
@@ -469,9 +517,19 @@ async function render() {
 
     const rowsHtml = rows.map(r => {
       const kixCorrected = r.state === "future";
-      const kixValue = kixCorrected
-        ? fmt(applyBias(r.wind, r.time), 1)
-        : (amedasNow && amedasNow.windMs != null ? fmt(amedasNow.windMs, 1) : "–");
+      const hourKey = r.time.getHours();
+      let kixValue, kixDir;
+      if (kixCorrected) {
+        kixValue = fmt(applyBias(r.wind, r.time), 1);
+        kixDir = r.windDir;
+      } else if (r.state === "now") {
+        kixValue = (amedasNow && amedasNow.windMs != null) ? fmt(amedasNow.windMs, 1) : "–";
+        kixDir = amedasNow ? amedasNow.windDir : null;
+      } else {
+        const hist = amedasHistory[hourKey];
+        kixValue = (hist && hist.windMs != null) ? fmt(hist.windMs, 1) : "–";
+        kixDir = hist ? hist.windDir : null;
+      }
 
       return `
       <tr class="${r.state === 'now' ? 'now-row' : ''}">
@@ -490,6 +548,7 @@ async function render() {
         <td class="${kixCorrected ? 'corrected' : 'muted'}">
           <div class="wind-cell">
             <span>${kixValue}</span>
+            ${kixDir != null ? windDirArrowSvg(kixDir) : ''}
             ${kixCorrected ? '<span class="corrected-tag">予測</span>' : ''}
           </div>
         </td>
