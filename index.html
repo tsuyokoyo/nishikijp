@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二色浜.JP</title>
+<style>
+  :root {
+    --ocean-deep: #0B5FA5;
+    --ocean-mid: #1D82C9;
+    --ocean-light: #4FC3E8;
+    --caution: #E8734A;
+    --bg-page: #EAF4FB;
+    --card: #FFFFFF;
+    --text-primary: #10324A;
+    --text-secondary: #5C7A91;
+    --border: #D6E7F2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+  header {
+    background: var(--ocean-deep);
+    color: white;
+    padding: 0.7rem 1.25rem;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .container {
+    max-width: 760px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+  }
+  .day-block {
+    margin-top: 1.4rem;
+  }
+  .day-block:first-of-type {
+    margin-top: 1rem;
+  }
+  .day-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.2rem 0.2rem 0.5rem;
+  }
+  .day-heading .date {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ocean-deep);
+  }
+  .day-heading .weekday {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .day-heading .tide-summary {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+  .table-wrap {
+    background: var(--card);
+    border-radius: 12px;
+    overflow-x: auto;
+    box-shadow: 0 2px 8px rgba(11,95,165,0.08);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    min-width: 640px;
+  }
+  th {
+    text-align: center;
+    padding: 0.55rem 0.4rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    background: #F4FAFD;
+  }
+  th:first-child, td:first-child { text-align: left; padding-left: 0.8rem; }
+  td {
+    text-align: center;
+    padding: 0.5rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr.now-row { background: rgba(79,195,232,0.14); }
+  tr.now-row td:first-child { font-weight: 700; color: var(--ocean-deep); }
+  .wind-dir-arrow {
+    display: inline-block;
+    width: 12px; height: 12px;
+    margin-left: 4px;
+    vertical-align: -1px;
+  }
+  .corrected { color: var(--ocean-mid); font-weight: 600; }
+  .corrected-tag {
+    font-size: 0.58rem;
+    color: var(--ocean-mid);
+    background: #E3F1FA;
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-left: 3px;
+  }
+  .muted { color: var(--text-secondary); }
+  .legend {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    font-size: 0.7rem; color: var(--text-secondary);
+    margin: 0.8rem 0 0.2rem; padding-left: 0.2rem;
+  }
+  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; }
+  footer {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    padding: 2rem 1rem;
+  }
+  .error-msg {
+    font-size: 0.75rem;
+    color: var(--caution);
+    padding: 0.8rem;
+  }
+  .loading {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>二色浜.JP</h1>
+</header>
+
+<div class="container">
+  <div class="legend">
+    <span><span class="dot" style="background:var(--text-secondary);"></span>過去(実測)</span>
+    <span><span class="dot" style="background:var(--ocean-light);"></span>現在時刻</span>
+    <span><span class="dot" style="background:var(--ocean-mid);"></span>未来(補正後予報)</span>
+  </div>
+
+  <div id="days-container">
+    <div class="loading">読み込み中…</div>
+  </div>
+
+  <footer>
+    データ: 気象庁アメダス(関西空港 62101) / Open-Meteo / tide736.net<br>
+    予報の補正値は過去3年の実測との誤差統計に基づく参考値です
+  </footer>
+</div>
+
+<script>
+/* ===================== 設定 ===================== */
+const KIX_LAT = 34.433, KIX_LON = 135.232;   // 関空島
+const AMEDAS_CODE = "62101";                  // 関空島アメダス
+const TIDE_PC = 27, TIDE_HC = 3;              // 大阪府・岸和田(二色浜の代用)
+const FORECAST_DAYS = 16;                     // Open-Meteoが返せる最大日数
+
+/*
+  月別バイアス補正テーブル(仮の初期値、全て0=補正なし)。
+  analyze.py の集計結果(monthly_bias.json)が出来たら、
+  ここを fetch("monthly_bias.json") に差し替えて実データを読み込む。
+*/
+const MONTHLY_BIAS_MS = {
+  1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0
+};
+
+const WEATHER_ICON = {
+  0:"晴", 1:"晴", 2:"曇時々晴", 3:"曇",
+  45:"霧", 48:"霧",
+  51:"小雨", 53:"雨", 55:"雨",
+  61:"雨", 63:"雨", 65:"強雨",
+  71:"雪", 73:"雪", 75:"雪",
+  80:"にわか雨", 81:"にわか雨", 82:"強いにわか雨", 95:"雷雨"
+};
+
+const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
+function applyBias(rawWindMs, dateObj) {
+  const month = dateObj.getMonth() + 1;
+  const bias = MONTHLY_BIAS_MS[month] || 0;
+  return Math.max(0, rawWindMs - bias);
+}
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/* ===================== データ取得 ===================== */
+
+async function fetchForecast() {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${KIX_LAT}&longitude=${KIX_LON}` +
+    `&hourly=temperature_2m,precipitation,weathercode,wind_speed_10m,wind_direction_10m` +
+    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Open-Meteo取得失敗");
+  return res.json();
+}
+
+async function fetchAmedasLatestTime() {
+  const res = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.txt");
+  const text = await res.text();
+  return new Date(text.trim());
+}
+
+async function fetchAmedasNow() {
+  const latest = await fetchAmedasLatestTime();
+  const ts = latest.toISOString().replace(/[-:T]/g, "").slice(0, 12) + "00";
+  const url = `https://www.jma.go.jp/bosai/amedas/data/map/${ts}.json`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const station = data[AMEDAS_CODE];
+  if (!station) return null;
+  return { time: latest, windMs: station.wind ? station.wind[0] : null };
+}
+
+async function fetchTideForDate(d) {
+  const url = `https://api.tide736.net/get_tide.php?pc=${TIDE_PC}&hc=${TIDE_HC}` +
+    `&yr=${d.getFullYear()}&mn=${d.getMonth()+1}&dy=${d.getDate()}&rg=day`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("潮汐データ取得失敗");
+  const json = await res.json();
+  if (json.status !== 1) return null;
+  return json.tide.chart[dateKey(d)] || null;
+}
+
+/* ===================== 描画 ===================== */
+
+function windDirArrowSvg(deg) {
+  return `<svg class="wind-dir-arrow" viewBox="0 0 24 24" style="transform:rotate(${deg}deg)">
+    <path d="M12 2 L18 14 L12 10 L6 14 Z" fill="#5C7A91"/>
+  </svg>`;
+}
+
+function tideSummaryText(tideDay) {
+  if (!tideDay) return "潮汐: 取得失敗";
+  const flood = (tideDay.flood || []).map(f => `満${f.time}`);
+  const edd = (tideDay.edd || []).map(e => `干${e.time}`);
+  const all = [...flood, ...edd].join(" / ");
+  return all || "潮汐: –";
+}
+
+async function render() {
+  const container = document.getElementById("days-container");
+  const now = new Date();
+
+  let forecast, amedasNow;
+  try {
+    [forecast, amedasNow] = await Promise.all([
+      fetchForecast(),
+      fetchAmedasNow().catch(() => null),
+    ]);
+  } catch (e) {
+    container.innerHTML = `<div class="error-msg">データ取得に失敗しました(${e.message})。時間をおいて再読み込みしてください。</div>`;
+    return;
+  }
+
+  const times = forecast.hourly.time;
+  const rowsByDate = new Map();
+
+  for (let i = 0; i < times.length; i++) {
+    const t = new Date(times[i]);
+    const key = dateKey(t);
+    const isPast = t < now && t.getHours() !== now.getHours();
+    const isNow = t.getHours() === now.getHours() && key === dateKey(now);
+    const isFuture = !isPast && !isNow;
+
+    const rawWind = forecast.hourly.wind_speed_10m[i];
+    const windDir = forecast.hourly.wind_direction_10m[i];
+    const displayWind = isFuture ? applyBias(rawWind, t) : rawWind;
+
+    if (!rowsByDate.has(key)) rowsByDate.set(key, { date: t, rows: [] });
+    rowsByDate.get(key).rows.push({
+      time: t,
+      hourLabel: `${t.getHours()}時`,
+      icon: WEATHER_ICON[forecast.hourly.weathercode[i]] || "–",
+      rain: forecast.hourly.precipitation[i],
+      temp: forecast.hourly.temperature_2m[i],
+      wind: displayWind,
+      windDir,
+      corrected: isFuture,
+      state: isPast ? "past" : (isNow ? "now" : "future"),
+    });
+  }
+
+  // 潮汐は日付ごとに個別取得(APIが1日単位のため)
+  const dateEntries = [...rowsByDate.values()];
+  const tideResults = await Promise.all(
+    dateEntries.map(entry => fetchTideForDate(entry.date).catch(() => null))
+  );
+
+  const html = dateEntries.map((entry, idx) => {
+    const d = entry.date;
+    const tideDay = tideResults[idx];
+    const rows = entry.rows;
+
+    const rowsHtml = rows.map(r => `
+      <tr class="${r.state === 'now' ? 'now-row' : ''}">
+        <td>${r.hourLabel}</td>
+        <td>${r.icon}</td>
+        <td class="muted">${r.rain.toFixed(1)}mm</td>
+        <td>${r.temp.toFixed(1)}°</td>
+        <td class="${r.corrected ? 'corrected' : ''}">
+          ${r.wind.toFixed(1)}${r.corrected ? '<span class="corrected-tag">補正</span>' : ''}
+          ${windDirArrowSvg(r.windDir)}
+        </td>
+        <td class="muted">–</td>
+        <td class="muted">${tideDay ? "潮位あり" : "–"}</td>
+        <td class="muted">${r.state === 'future' ? '–' : (amedasNow && amedasNow.windMs != null ? amedasNow.windMs.toFixed(1) + 'm/s' : '–')}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <div class="day-block">
+        <div class="day-heading">
+          <span class="date">${d.getMonth()+1}/${d.getDate()}</span>
+          <span class="weekday">(${WEEKDAY_JA[d.getDay()]})</span>
+          <span class="tide-summary">${tideSummaryText(tideDay)}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>時間</th><th>天気</th><th>降水</th><th>気温</th><th>風</th><th>沿岸</th><th>潮汐</th><th>関空実況</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  container.innerHTML = html;
+}
+
+render();
+</script>
+</body>
+</html>
