@@ -89,7 +89,7 @@
   }
   th {
     text-align: center;
-    padding: 0.5rem 0.1rem;
+    padding: 0.22rem 0.1rem;
     color: #E4F0FA;
     font-weight: 700;
     border-bottom: 1px solid var(--border);
@@ -99,7 +99,7 @@
   }
   td {
     text-align: center;
-    padding: 0.5rem 0.1rem;
+    padding: 0.38rem 0.1rem;
     border-bottom: 1px solid var(--border);
     overflow: hidden;
     color: #000;
@@ -505,7 +505,7 @@ async function render() {
     if (!rowsByDate.has(key)) rowsByDate.set(key, { date: t, rows: [] });
     rowsByDate.get(key).rows.push({
       time: t,
-      hourLabel: `${t.getHours()}時`,
+      hourLabel: `${t.getHours()}`,
       weatherCode: forecast.hourly.weathercode[i],
       rain: forecast.hourly.precipitation[i],
       temp: forecast.hourly.temperature_2m[i],
