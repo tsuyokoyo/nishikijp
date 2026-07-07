@@ -85,20 +85,21 @@
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.76rem;
+    font-size: 0.92rem;
   }
   th {
     text-align: center;
-    padding: 0.35rem 0.1rem;
+    padding: 0.5rem 0.1rem;
     color: #E4F0FA;
     font-weight: 700;
     border-bottom: 1px solid var(--border);
     background: var(--thead-blue);
     overflow: hidden;
+    font-size: 0.8rem;
   }
   td {
     text-align: center;
-    padding: 0.32rem 0.1rem;
+    padding: 0.5rem 0.1rem;
     border-bottom: 1px solid var(--border);
     overflow: hidden;
     color: #000;
@@ -109,28 +110,36 @@
   tr.now-row td:first-child { font-weight: 700; color: var(--ocean-deep); }
   .weather-icon, .rain-icon {
     display: inline-block;
-    width: 20px; height: 20px;
+    width: 24px; height: 24px;
     vertical-align: middle;
   }
   .rain-amount {
     display: block;
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     color: var(--text-secondary);
   }
   .wind-cell {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1px;
+    gap: 0px;
+  }
+  .wind-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
   }
   .wind-dir-arrow {
     display: inline-block;
-    width: 20px; height: 20px;
+    width: 22px; height: 22px;
+    flex-shrink: 0;
   }
-  .corrected { color: var(--ocean-mid); font-weight: 600; }
+  .corrected { color: var(--ocean-mid); font-weight: 700; }
   .corrected-tag {
     display: block;
-    font-size: 0.55rem;
+    font-size: 0.6rem;
     color: var(--ocean-mid);
     background: #E3F1FA;
     padding: 0 3px;
@@ -423,11 +432,11 @@ async function loadTideData() {
 
 /* ===================== 描画 ===================== */
 
-function windDirArrowSvg(deg) {
+function windDirArrowSvg(deg, speed) {
   const safeDeg = (deg == null) ? 0 : (deg + 180) % 360;
+  const fillColor = (speed != null && speed >= 4) ? "#F5C518" : "#1D6FA0";
   return `<svg class="wind-dir-arrow" viewBox="0 0 24 24" style="transform:rotate(${safeDeg}deg)">
-    <line x1="12" y1="20" x2="12" y2="6" stroke="#5C7A91" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M12 3 L17 10 L12 7.5 L7 10 Z" fill="#5C7A91"/>
+    <path d="M12 2 L20 17 L12 12.5 L4 17 Z" fill="${fillColor}" stroke="#000" stroke-width="1"/>
   </svg>`;
 }
 
@@ -518,16 +527,19 @@ async function render() {
     const rowsHtml = rows.map(r => {
       const kixCorrected = r.state === "future";
       const hourKey = r.time.getHours();
-      let kixValue, kixDir;
+      let kixValueNum, kixValue, kixDir;
       if (kixCorrected) {
-        kixValue = fmt(applyBias(r.wind, r.time), 1);
+        kixValueNum = applyBias(r.wind, r.time);
+        kixValue = fmt(kixValueNum, 1);
         kixDir = r.windDir;
       } else if (r.state === "now") {
-        kixValue = (amedasNow && amedasNow.windMs != null) ? fmt(amedasNow.windMs, 1) : "–";
+        kixValueNum = (amedasNow && amedasNow.windMs != null) ? amedasNow.windMs : null;
+        kixValue = fmt(kixValueNum, 1);
         kixDir = amedasNow ? amedasNow.windDir : null;
       } else {
         const hist = amedasHistory[hourKey];
-        kixValue = (hist && hist.windMs != null) ? fmt(hist.windMs, 1) : "–";
+        kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
+        kixValue = fmt(kixValueNum, 1);
         kixDir = hist ? hist.windDir : null;
       }
 
@@ -539,16 +551,20 @@ async function render() {
         <td>${fmt(r.temp, 1)}°</td>
         <td>
           <div class="wind-cell">
-            <span>${fmt(r.wind, 1)}</span>
-            ${windDirArrowSvg(r.windDir)}
+            <div class="wind-row">
+              ${windDirArrowSvg(r.windDir, r.wind)}
+              <span>${fmt(r.wind, 1)}</span>
+            </div>
           </div>
         </td>
         <td class="muted">–</td>
-        <td class="muted">${fmt(tideCmAtHour(tideDay, r.time.getHours()), 0)}</td>
+        <td class="muted">${(() => { const v = tideCmAtHour(tideDay, r.time.getHours()); return v != null ? `${fmt(v,0)}cm` : "–"; })()}</td>
         <td class="${kixCorrected ? 'corrected' : 'muted'}">
           <div class="wind-cell">
-            <span>${kixValue}</span>
-            ${kixDir != null ? windDirArrowSvg(kixDir) : ''}
+            <div class="wind-row">
+              ${kixDir != null ? windDirArrowSvg(kixDir, kixValueNum) : ''}
+              <span>${kixValue}</span>
+            </div>
             ${kixCorrected ? '<span class="corrected-tag">予測</span>' : ''}
           </div>
         </td>
@@ -566,9 +582,9 @@ async function render() {
         <div class="table-wrap">
           <table>
             <colgroup>
-              <col style="width:9%"><col style="width:11%"><col style="width:11%">
-              <col style="width:10%"><col style="width:17%"><col style="width:10%">
-              <col style="width:13%"><col style="width:19%">
+              <col style="width:7%"><col style="width:10%"><col style="width:9%">
+              <col style="width:9%"><col style="width:19%"><col style="width:8%">
+              <col style="width:14%"><col style="width:24%">
             </colgroup>
             <thead>
               <tr>
