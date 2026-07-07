@@ -130,6 +130,31 @@
     color: var(--caution);
     padding: 0.8rem;
   }
+  .insight-box {
+    border: 2px solid var(--ocean-mid);
+    border-radius: 12px;
+    background: #F4FAFD;
+    padding: 0.9rem 1.1rem;
+    margin: 1rem 0 0.5rem;
+  }
+  .insight-box .insight-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    margin-bottom: 0.5rem;
+  }
+  .insight-box ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+  }
+  .insight-box li {
+    margin-bottom: 0.3rem;
+  }
+  .insight-box li:last-child {
+    margin-bottom: 0;
+  }
   .loading {
     text-align: center;
     color: var(--text-secondary);
@@ -145,6 +170,8 @@
 </header>
 
 <div class="container">
+  <div id="bias-insight"></div>
+
   <div class="legend">
     <span><span class="dot" style="background:var(--text-secondary);"></span>過去(実測)</span>
     <span><span class="dot" style="background:var(--ocean-light);"></span>現在時刻</span>
@@ -169,13 +196,63 @@ const TIDE_PC = 27, TIDE_HC = 3;              // 大阪府・岸和田(二色浜
 const FORECAST_DAYS = 16;                     // Open-Meteoが返せる最大日数
 
 /*
-  月別バイアス補正テーブル(仮の初期値、全て0=補正なし)。
-  analyze.py の集計結果(monthly_bias.json)が出来たら、
-  ここを fetch("monthly_bias.json") に差し替えて実データを読み込む。
+  月別バイアス補正テーブル。monthly_bias.json (analyze.pyの出力)を読み込んで使う。
+  取得に失敗した場合は補正なし(全て0)にフォールバックする。
 */
-const MONTHLY_BIAS_MS = {
+let MONTHLY_BIAS_MS = {
   1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0
 };
+
+async function loadMonthlyBias() {
+  try {
+    const res = await fetch("monthly_bias.json");
+    if (!res.ok) throw new Error("not found");
+    const data = await res.json();
+    MONTHLY_BIAS_MS = { ...MONTHLY_BIAS_MS, ...data };
+  } catch (e) {
+    console.warn("monthly_bias.json の読み込みに失敗。補正なしで表示します。", e);
+  }
+}
+
+function renderBiasInsight() {
+  const el = document.getElementById("bias-insight");
+  const entries = Object.entries(MONTHLY_BIAS_MS)
+    .map(([m, v]) => ({ month: Number(m), bias: Number(v) }))
+    .filter(e => e.bias !== 0);
+
+  if (entries.length === 0) { el.innerHTML = ""; return; }
+
+  // ズレが大きい順(過小評価が大きい=biasがより負)に並べる
+  const sortedByUnderestimate = [...entries].sort((a, b) => a.bias - b.bias);
+  const worst = sortedByUnderestimate.filter(e => e.bias <= -0.9).slice(0, 4);
+  const best = [...entries].sort((a, b) => Math.abs(a.bias) - Math.abs(b.bias))
+    .filter(e => Math.abs(e.bias) <= 0.6).slice(0, 4);
+
+  const monthList = arr => arr.map(e => `${e.month}月`).join("・");
+
+  const lines = [];
+  if (worst.length) {
+    lines.push(
+      `<li><strong>${monthList(worst)}</strong>は予報が実測より平均${Math.abs(
+        worst.reduce((s, e) => s + e.bias, 0) / worst.length
+      ).toFixed(1)}m/s弱く出やすい月です。海風・季節風の影響が強く、モデルが弱めに見積もる傾向があります。</li>`
+    );
+  }
+  if (best.length) {
+    lines.push(
+      `<li><strong>${monthList(best)}</strong>は予報と実測のズレが比較的小さい月です(平均${(
+        best.reduce((s, e) => s + Math.abs(e.bias), 0) / best.length
+      ).toFixed(1)}m/s前後)。</li>`
+    );
+  }
+
+  el.innerHTML = `
+    <div class="insight-box">
+      <div class="insight-title">予報のクセ(過去3年の実測との比較)</div>
+      <ul>${lines.join("")}</ul>
+    </div>
+  `;
+}
 
 const WEATHER_ICON = {
   0:"晴", 1:"晴", 2:"曇時々晴", 3:"曇",
@@ -189,6 +266,7 @@ const WEATHER_ICON = {
 const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
 function applyBias(rawWindMs, dateObj) {
+  if (rawWindMs == null) return null;
   const month = dateObj.getMonth() + 1;
   const bias = MONTHLY_BIAS_MS[month] || 0;
   return Math.max(0, rawWindMs - bias);
@@ -239,9 +317,14 @@ async function fetchTideForDate(d) {
 /* ===================== 描画 ===================== */
 
 function windDirArrowSvg(deg) {
-  return `<svg class="wind-dir-arrow" viewBox="0 0 24 24" style="transform:rotate(${deg}deg)">
+  const safeDeg = (deg == null) ? 0 : deg;
+  return `<svg class="wind-dir-arrow" viewBox="0 0 24 24" style="transform:rotate(${safeDeg}deg)">
     <path d="M12 2 L18 14 L12 10 L6 14 Z" fill="#5C7A91"/>
   </svg>`;
+}
+
+function fmt(value, digits = 1) {
+  return (value == null || Number.isNaN(value)) ? "–" : value.toFixed(digits);
 }
 
 function tideSummaryText(tideDay) {
@@ -253,6 +336,8 @@ function tideSummaryText(tideDay) {
 }
 
 async function render() {
+  await loadMonthlyBias();
+  renderBiasInsight();
   const container = document.getElementById("days-container");
   const now = new Date();
 
@@ -310,15 +395,15 @@ async function render() {
       <tr class="${r.state === 'now' ? 'now-row' : ''}">
         <td>${r.hourLabel}</td>
         <td>${r.icon}</td>
-        <td class="muted">${r.rain.toFixed(1)}mm</td>
-        <td>${r.temp.toFixed(1)}°</td>
+        <td class="muted">${fmt(r.rain, 1)}mm</td>
+        <td>${fmt(r.temp, 1)}°</td>
         <td class="${r.corrected ? 'corrected' : ''}">
-          ${r.wind.toFixed(1)}${r.corrected ? '<span class="corrected-tag">補正</span>' : ''}
+          ${fmt(r.wind, 1)}${r.corrected ? '<span class="corrected-tag">補正</span>' : ''}
           ${windDirArrowSvg(r.windDir)}
         </td>
         <td class="muted">–</td>
         <td class="muted">${tideDay ? "潮位あり" : "–"}</td>
-        <td class="muted">${r.state === 'future' ? '–' : (amedasNow && amedasNow.windMs != null ? amedasNow.windMs.toFixed(1) + 'm/s' : '–')}</td>
+        <td class="muted">${r.state === 'future' ? '–' : (amedasNow && amedasNow.windMs != null ? fmt(amedasNow.windMs, 1) + 'm/s' : '–')}</td>
       </tr>
     `).join("");
 
