@@ -336,6 +336,13 @@ function tideSummaryText(tideDay) {
   return all || "潮汐: –";
 }
 
+function tideCmAtHour(tideDay, hour) {
+  if (!tideDay || !tideDay.tide) return null;
+  const target = `${String(hour).padStart(2, "0")}:00`;
+  const entry = tideDay.tide.find(t => t.time === target);
+  return entry ? entry.cm : null;
+}
+
 async function render() {
   await loadMonthlyBias();
   renderBiasInsight();
@@ -401,7 +408,7 @@ async function render() {
           ${windDirArrowSvg(r.windDir)}
         </td>
         <td class="muted">–</td>
-        <td class="muted">${tideDay ? "潮位あり" : "–"}</td>
+        <td class="muted">${fmt(tideCmAtHour(tideDay, r.time.getHours()), 0)}${tideCmAtHour(tideDay, r.time.getHours()) != null ? 'cm' : ''}</td>
         <td class="muted">${r.state === 'future' ? '–' : (amedasNow && amedasNow.windMs != null ? fmt(amedasNow.windMs, 1) + 'm/s' : '–')}</td>
       </tr>
     `).join("");
