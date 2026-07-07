@@ -85,22 +85,24 @@
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.68rem;
+    font-size: 0.76rem;
   }
   th {
     text-align: center;
     padding: 0.35rem 0.1rem;
     color: #E4F0FA;
-    font-weight: 600;
+    font-weight: 700;
     border-bottom: 1px solid var(--border);
     background: var(--thead-blue);
     overflow: hidden;
   }
   td {
     text-align: center;
-    padding: 0.3rem 0.1rem;
+    padding: 0.32rem 0.1rem;
     border-bottom: 1px solid var(--border);
     overflow: hidden;
+    color: #000;
+    font-weight: 700;
   }
   tr:last-child td { border-bottom: none; }
   tr.now-row { background: rgba(79,195,232,0.14); }
@@ -375,7 +377,7 @@ async function loadTideData() {
 /* ===================== 描画 ===================== */
 
 function windDirArrowSvg(deg) {
-  const safeDeg = (deg == null) ? 0 : deg;
+  const safeDeg = (deg == null) ? 0 : (deg + 180) % 360;
   return `<svg class="wind-dir-arrow" viewBox="0 0 24 24" style="transform:rotate(${safeDeg}deg)">
     <line x1="12" y1="20" x2="12" y2="6" stroke="#5C7A91" stroke-width="2.2" stroke-linecap="round"/>
     <path d="M12 3 L17 10 L12 7.5 L7 10 Z" fill="#5C7A91"/>
