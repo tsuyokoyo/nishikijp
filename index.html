@@ -312,12 +312,21 @@ function renderBiasInsight() {
 }
 
 const WEATHER_CATEGORY = {
-  0:"sun", 1:"sun", 2:"sun-cloud", 3:"cloud",
+  0:"sun",              // 快晴
+  1:"sun-cloud-light",  // 晴れ時々曇り
+  2:"sun-cloud",        // 曇り時々晴れ
+  3:"cloud",            // 曇り
   45:"fog", 48:"fog",
-  51:"rain", 53:"rain", 55:"rain",
-  61:"rain", 63:"rain", 65:"rain",
-  71:"snow", 73:"snow", 75:"snow",
-  80:"rain", 81:"rain", 82:"rain", 95:"thunder"
+  51:"cloud-drizzle", 53:"cloud-drizzle", 55:"cloud-drizzle", // 霧雨
+  56:"cloud-drizzle", 57:"cloud-drizzle",
+  61:"cloud-drizzle",   // 弱い雨(曇り時々雨に近い)
+  63:"rain", 65:"rain",
+  66:"rain", 67:"rain",
+  71:"snow-light", 77:"snow-light",
+  73:"snow", 75:"snow", 85:"snow", 86:"snow",
+  80:"cloud-drizzle",   // 弱いにわか雨
+  81:"rain", 82:"rain",
+  95:"thunder", 96:"thunder", 99:"thunder"
 };
 
 const CLOUD_PATH = '<path d="M7 18a4 4 0 01-.5-7.97A5 5 0 0116.9 8.02 4.5 4.5 0 0117.5 18H7z" fill="#AEC2CC"/>';
@@ -327,7 +336,7 @@ const RAIN_PROB_THRESHOLD = 50; // %。降水確率がこれ未満なら雨マ�
 
 function weatherIconSvg(code, precipMm, precipProb) {
   let cat = WEATHER_CATEGORY[code] || "cloud";
-  const rainFamily = ["rain", "snow", "thunder"];
+  const rainFamily = ["rain", "cloud-drizzle", "snow", "snow-light", "thunder"];
   const isTraceAmount = (precipMm == null || precipMm < RAIN_TRACE_THRESHOLD);
   const isLowProbability = (precipProb != null && precipProb < RAIN_PROB_THRESHOLD);
   if (rainFamily.includes(cat) && (isTraceAmount || isLowProbability)) {
@@ -341,14 +350,27 @@ function weatherIconSvg(code, precipMm, precipProb) {
       '<line x1="2" y1="12" x2="4.4" y2="12"/><line x1="19.6" y1="12" x2="22" y2="12"/>' +
       '<line x1="4.9" y1="4.9" x2="6.4" y2="6.4"/><line x1="17.6" y1="17.6" x2="19.1" y2="19.1"/>' +
       '<line x1="4.9" y1="19.1" x2="6.4" y2="17.6"/><line x1="17.6" y1="6.4" x2="19.1" y2="4.9"/></g>';
+  } else if (cat === "sun-cloud-light") {
+    // 晴れ時々曇り: 大きめの太陽 + 右下に控えめな雲
+    inner = '<circle cx="10" cy="9" r="6" fill="#F5B942"/>' +
+      '<g stroke="#F5B942" stroke-width="1.4" stroke-linecap="round">' +
+      '<line x1="10" y1="0.5" x2="10" y2="2.2"/><line x1="1.5" y1="9" x2="3.2" y2="9"/>' +
+      '<line x1="3.6" y1="2.6" x2="4.8" y2="3.8"/><line x1="16.4" y1="2.6" x2="15.2" y2="3.8"/></g>' +
+      '<path d="M12 20a3.4 3.4 0 01-.4-6.78A4.3 4.3 0 0120 14.5 3.6 3.6 0 0119.8 20H12z" fill="#AEC2CC"/>';
   } else if (cat === "sun-cloud") {
     inner = '<circle cx="8.5" cy="8" r="3.6" fill="#F5B942"/>' + CLOUD_PATH;
   } else if (cat === "fog") {
     inner = '<g stroke="#A9BAC2" stroke-width="1.8" stroke-linecap="round">' +
       '<line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/></g>';
+  } else if (cat === "cloud-drizzle") {
+    // 曇り時々雨: 雲 + 控えめな雨粒2本
+    inner = CLOUD_PATH + '<g stroke="#4FA9E8" stroke-width="1.6" stroke-linecap="round">' +
+      '<line x1="9" y1="19.5" x2="8.3" y2="21.5"/><line x1="14.5" y1="19.5" x2="13.8" y2="21.5"/></g>';
   } else if (cat === "rain") {
     inner = CLOUD_PATH + '<g stroke="#4FA9E8" stroke-width="1.8" stroke-linecap="round">' +
       '<line x1="8" y1="19" x2="7" y2="22"/><line x1="12" y1="19" x2="11" y2="22"/><line x1="16" y1="19" x2="15" y2="22"/></g>';
+  } else if (cat === "snow-light") {
+    inner = CLOUD_PATH + '<g fill="#8FC1E8"><circle cx="9" cy="20" r="1"/><circle cx="15" cy="20" r="1"/></g>';
   } else if (cat === "snow") {
     inner = CLOUD_PATH + '<g fill="#8FC1E8"><circle cx="8" cy="20" r="1.1"/><circle cx="12" cy="21" r="1.1"/><circle cx="16" cy="20" r="1.1"/></g>';
   } else if (cat === "thunder") {
