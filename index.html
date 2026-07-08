@@ -307,8 +307,14 @@ const WEATHER_CATEGORY = {
 
 const CLOUD_PATH = '<path d="M7 18a4 4 0 01-.5-7.97A5 5 0 0116.9 8.02 4.5 4.5 0 0117.5 18H7z" fill="#AEC2CC"/>';
 
-function weatherIconSvg(code) {
-  const cat = WEATHER_CATEGORY[code] || "cloud";
+const RAIN_TRACE_THRESHOLD = 0.3; // mm。これ未満はモデルのノイズとみなし雨アイコンにしない
+
+function weatherIconSvg(code, precipMm) {
+  let cat = WEATHER_CATEGORY[code] || "cloud";
+  const rainFamily = ["rain", "snow", "thunder"];
+  if (rainFamily.includes(cat) && (precipMm == null || precipMm < RAIN_TRACE_THRESHOLD)) {
+    cat = "cloud"; // 微小なトレース降水はノイズとみなし、曇りマークにフォールバック
+  }
   let inner = "";
   if (cat === "sun") {
     inner = '<circle cx="12" cy="12" r="5" fill="#F5B942"/>' +
@@ -336,7 +342,7 @@ function weatherIconSvg(code) {
 }
 
 function rainCellHtml(mm) {
-  if (mm == null || mm <= 0) return '<span class="muted">–</span>';
+  if (mm == null || mm < RAIN_TRACE_THRESHOLD) return '<span class="muted">–</span>';
   return `<svg class="rain-icon" viewBox="0 0 24 24"><path d="M12 3C9 8 6 11.2 6 14.6A6 6 0 0018 14.6C18 11.2 15 8 12 3Z" fill="#4FA9E8"/></svg>` +
     `<span class="rain-amount">${fmt(mm, 1)}</span>`;
 }
@@ -544,20 +550,29 @@ async function render() {
         kixValue = fmt(kixValueNum, 1);
         kixDir = r.windDir;
       } else if (r.state === "now") {
-        kixValueNum = (amedasNow && amedasNow.windMs != null) ? amedasNow.windMs : null;
+        // 現在時刻の行は「今この瞬間」の最新観測値を優先表示する。
+        // (時刻ちょうどの値より、直近のリアルタイム値の方が
+        //  行く/行かないの判断には実用的なため)
+        if (amedasNow && amedasNow.windMs != null) {
+          kixValueNum = amedasNow.windMs;
+          kixDir = amedasNow.windDir;
+        } else {
+          const hist = amedasHistory[hourKey];
+          kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
+          kixDir = hist ? hist.windDir : null;
+        }
         kixValue = fmt(kixValueNum, 1);
-        kixDir = amedasNow ? amedasNow.windDir : null;
       } else {
         const hist = amedasHistory[hourKey];
         kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
-        kixValue = fmt(kixValueNum, 1);
         kixDir = hist ? hist.windDir : null;
+        kixValue = fmt(kixValueNum, 1);
       }
 
       return `
       <tr class="${r.state === 'now' ? 'now-row' : ''}">
         <td>${r.hourLabel}</td>
-        <td>${weatherIconSvg(r.weatherCode)}</td>
+        <td>${weatherIconSvg(r.weatherCode, r.rain)}</td>
         <td>${rainCellHtml(r.rain)}</td>
         <td>${fmt(r.temp, 1)}°</td>
         <td>
@@ -577,6 +592,7 @@ async function render() {
               <span>${kixValue}</span>
             </div>
             ${kixCorrected ? '<span class="corrected-tag">予測</span>' : ''}
+            ${r.state === 'now' ? '<span class="corrected-tag" style="color:var(--ocean-deep);background:#E4F0FA;">現在</span>' : ''}
           </div>
         </td>
       </tr>
