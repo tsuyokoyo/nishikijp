@@ -596,7 +596,15 @@ async function render() {
   }
 
   // 潮汐データ(GitHub Actionsが定期更新するtide_data.jsonから読み込む)
-  const dateEntries = [...rowsByDate.values()];
+  let dateEntries = [...rowsByDate.values()];
+
+  // モデルの予報範囲を超えて、1日まるごと風速データが取得できていない日以降は表示しない
+  const cutoffIndex = dateEntries.findIndex(
+    entry => entry.rows.every(r => r.wind == null)
+  );
+  if (cutoffIndex !== -1) {
+    dateEntries = dateEntries.slice(0, cutoffIndex);
+  }
   const tideData = await loadTideData();
 
   const html = dateEntries.map((entry) => {
