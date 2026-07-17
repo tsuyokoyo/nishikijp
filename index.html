@@ -452,6 +452,33 @@ async function fetchForecast() {
   return res.json();
 }
 
+const KIX_ACTUAL_LAT = 34.433, KIX_ACTUAL_LON = 135.232; // 関空島そのものの座標
+
+async function fetchKixOwnForecast() {
+  // 「関空」列の未来推定(補正予報)は、選択中スポットの予報ではなく
+  // 関空そのものの座標での予報 + バイアス補正を使う必要があるため、別途取得する。
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${KIX_ACTUAL_LAT}&longitude=${KIX_ACTUAL_LON}` +
+    `&hourly=wind_speed_10m,wind_direction_10m` +
+    `&models=jma_gsm` +
+    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return {};
+    const data = await res.json();
+    const map = {};
+    data.hourly.time.forEach((t, i) => {
+      map[t] = {
+        wind: data.hourly.wind_speed_10m[i],
+        dir: data.hourly.wind_direction_10m[i],
+      };
+    });
+    return map;
+  } catch (e) {
+    console.warn("関空自身の予報取得に失敗", e);
+    return {};
+  }
+}
+
 async function fetchPrecipProbability() {
   // 降水確率(%)はアンサンブル/複合モデルでないと出せないため、
   // JMA GSM単体ではなくBest Matchから別途取得し、雨マーク判定にだけ使う。
@@ -593,13 +620,14 @@ async function render() {
   const container = document.getElementById("days-container");
   const now = new Date();
 
-  let forecast, amedasNow, amedasHistory, precipProbMap;
+  let forecast, amedasNow, amedasHistory, precipProbMap, kixOwnForecast;
   try {
-    [forecast, amedasNow, amedasHistory, precipProbMap] = await Promise.all([
+    [forecast, amedasNow, amedasHistory, precipProbMap, kixOwnForecast] = await Promise.all([
       fetchForecast(),
       fetchAmedasNow().catch(() => null),
       fetchAmedasHistoryToday().catch(() => ({})),
       fetchPrecipProbability(),
+      fetchKixOwnForecast(),
     ]);
   } catch (e) {
     container.innerHTML = `<div class="error-msg">データ取得に失敗しました(${e.message})。時間をおいて再読み込みしてください。</div>`;
@@ -621,6 +649,7 @@ async function render() {
 
     const rawWind = forecast.hourly.wind_speed_10m[i];
     const windDir = forecast.hourly.wind_direction_10m[i];
+    const kixOwn = kixOwnForecast[times[i]] || null;
 
     if (!rowsByDate.has(key)) rowsByDate.set(key, { date: t, rows: [] });
     rowsByDate.get(key).rows.push({
@@ -632,6 +661,8 @@ async function render() {
       temp: forecast.hourly.temperature_2m[i],
       wind: rawWind,
       windDir,
+      kixOwnWind: kixOwn ? kixOwn.wind : null,
+      kixOwnDir: kixOwn ? kixOwn.dir : null,
       state: isPast ? "past" : (isNow ? "now" : "future"),
     });
   }
@@ -659,9 +690,10 @@ async function render() {
       const hourKey = r.time.getHours();
       let kixValueNum, kixValue, kixDir;
       if (kixCorrected) {
-        kixValueNum = applyBias(r.wind, r.time);
+        // 関空そのものの座標での予報にバイアス補正をかける(選択中スポットの予報とは別物)
+        kixValueNum = applyBias(r.kixOwnWind, r.time);
         kixValue = fmt(kixValueNum, 1);
-        kixDir = r.windDir;
+        kixDir = r.kixOwnDir;
       } else if (r.state === "now") {
         // 現在時刻の行は「今この瞬間」の最新観測値を優先表示する。
         // (時刻ちょうどの値より、直近のリアルタイム値の方が
