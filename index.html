@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>二色浜だけ.JP | 二色浜のウィングフォイル風予報</title>
-<meta name="description" content="関西空港の実測風速データと過去3年分の誤差検証にもとづく補正予報で、大阪湾・二色浜のウィングフォイル可否を判断できるサイト。">
+<title>二色浜と岬町.JP | ウィングフォイル風予報</title>
+<meta name="description" content="関西空港の実測風速データと過去3年分の誤差検証にもとづく補正予報で、大阪湾・二色浜と岬町のウィングフォイル可否を判断できるサイト。">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="二色浜だけ.JP">
-<meta property="og:description" content="関西空港の実測風速と補正予報で、二色浜のウィングフォイル可否をチェック。">
+<meta property="og:title" content="二色浜と岬町.JP">
+<meta property="og:description" content="関西空港の実測風速と補正予報で、二色浜・岬町のウィングフォイル可否をチェック。">
 <meta property="og:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <meta property="og:url" content="https://tsuyokoyo.github.io/nishikijp/">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="二色浜だけ.JP">
-<meta name="twitter:description" content="関西空港の実測風速と補正予報で、二色浜のウィングフォイル可否をチェック。">
+<meta name="twitter:title" content="二色浜と岬町.JP">
+<meta name="twitter:description" content="関西空港の実測風速と補正予報で、二色浜・岬町のウィングフォイル可否をチェック。">
 <meta name="twitter:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <link rel="icon" href="logo.png" type="image/png">
 <style>
@@ -241,10 +241,10 @@
 <body>
 
 <header>
-  <h1><img src="logo.png" alt="二色浜だけ.JP ロゴ" class="header-logo">二色浜だけ.JP</h1>
+  <h1><img src="logo.png" alt="二色浜と岬町.JP ロゴ" class="header-logo">二色浜と岬町.JP</h1>
 </header>
 <noscript>
-  <p style="padding:1rem;">二色浜だけ.JPは、関西空港の実測風速データと補正予報で二色浜のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
+  <p style="padding:1rem;">二色浜と岬町.JPは、関西空港の実測風速データと補正予報で二色浜・岬町のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
 </noscript>
 
 <div class="container">
@@ -271,7 +271,7 @@
 /* ===================== 設定 ===================== */
 const SPOTS = {
   nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tideHc: 3 },  // 岸和田(近傍代用)
-  fukenoura: { name: "深日港", lat: 34.318964, lon: 135.142347, tideHc: 1 },
+  fukenoura: { name: "岬町", lat: 34.318964, lon: 135.142347, tideHc: 1 },
 };
 const AMEDAS_CODE = "62101"; // 関空島アメダス(両スポット共通の実測基準)
 const TIDE_PC = 27;          // 大阪府
