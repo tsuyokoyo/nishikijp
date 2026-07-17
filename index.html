@@ -21,8 +21,8 @@
     --ocean-deep: #0B5FA5;
     --ocean-mid: #1D82C9;
     --ocean-light: #4FC3E8;
-    --header-vivid: #0C6FB0;
-    --thead-blue: #3A7CA8;
+    --header-vivid: #006ECB;
+    --thead-blue: #149BDF;
     --caution: #E8734A;
     --bg-page: #EAF4FB;
     --card: #FFFFFF;
@@ -40,10 +40,17 @@
     overflow-x: hidden;
   }
   header {
-    background: var(--header-vivid);
+    background: #006ECB;
     color: white;
-    padding: 0.6rem 0.6rem;
+    padding: 0;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 20;
   }
   header h1 {
     margin: 0;
@@ -219,7 +226,12 @@
   .spot-switcher {
     display: flex;
     gap: 0.5rem;
-    padding: 0.6rem 0.4rem 0.2rem;
+    padding: 0.5rem 0.4rem;
+    position: sticky;
+    top: 40px;
+    z-index: 19;
+    background: var(--bg-page);
+    border-bottom: 2px solid var(--border);
   }
   .spot-btn {
     flex: 1;
