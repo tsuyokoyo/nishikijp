@@ -1,9 +1,11 @@
 """
-tide736.net から二色浜(代用: 岸和田)の潮汐データを取得し、
+tide736.net から複数スポット分の潮汐データを取得し、
 tide_data.json としてまとめて保存するスクリプト。
 
+出力形式: { "hcの値(文字列)": { "YYYY-MM-DD": {...潮汐データ...}, ... }, ... }
+index.html 側は SPOTS[currentSpot].tideHc に対応するキーを参照する。
+
 CORSの制約を受けないよう、GitHub Actions上(サーバー側)から実行する前提。
-index.html はこの tide_data.json を同一オリジンから読み込むだけにする。
 """
 
 import json
@@ -11,17 +13,16 @@ import datetime
 import time
 import requests
 
-TIDE_PC = 27   # 大阪府
-TIDE_HC = 3    # 岸和田(二色浜の代用)
+TIDE_PC = 27  # 大阪府
+# 取得対象の港。key=hc(tide736.netの港コード), value=表示用ラベル(ログ用)
+HARBORS = {
+    3: "岸和田(二色浜の代用)",
+    1: "深日",
+}
 DAYS_AHEAD = 20  # サイト側のforecast_days(16)より少し余裕を持たせる
 URL = "https://api.tide736.net/get_tide.php"
 
 OUT_PATH = "tide_data.json"
-
-
-def date_key(d: datetime.date) -> str:
-    return d.strftime("%Y-%m-%d")
-
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -29,9 +30,13 @@ HEADERS = {
 }
 
 
-def fetch_day(d: datetime.date):
+def date_key(d: datetime.date) -> str:
+    return d.strftime("%Y-%m-%d")
+
+
+def fetch_day(hc: int, d: datetime.date):
     params = {
-        "pc": TIDE_PC, "hc": TIDE_HC,
+        "pc": TIDE_PC, "hc": hc,
         "yr": d.year, "mn": d.month, "dy": d.day,
         "rg": "day",
     }
@@ -45,25 +50,33 @@ def fetch_day(d: datetime.date):
     return data["tide"]["chart"].get(key)
 
 
-def main():
+def fetch_harbor(hc: int, label: str) -> dict:
     today = datetime.date.today()
     result = {}
-
     for offset in range(DAYS_AHEAD):
         d = today + datetime.timedelta(days=offset)
-        print(f"取得中: {d.isoformat()}")
+        print(f"取得中[{label} hc={hc}]: {d.isoformat()}")
         try:
-            chart = fetch_day(d)
+            chart = fetch_day(hc, d)
             if chart is not None:
                 result[date_key(d)] = chart
         except Exception as e:
             print(f"  失敗: {e}")
         time.sleep(1)  # サーバー負荷への配慮
+    return result
+
+
+def main():
+    all_result = {}
+    for hc, label in HARBORS.items():
+        all_result[str(hc)] = fetch_harbor(hc, label)
 
     with open(OUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False)
+        json.dump(all_result, f, ensure_ascii=False)
 
-    print(f"\n保存完了: {OUT_PATH} ({len(result)}日分)")
+    for hc, data in all_result.items():
+        print(f"hc={hc}: {len(data)}日分")
+    print(f"\n保存完了: {OUT_PATH}")
 
 
 if __name__ == "__main__":

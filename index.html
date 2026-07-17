@@ -216,6 +216,26 @@
     padding: 2rem;
     font-size: 0.85rem;
   }
+  .spot-switcher {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.6rem 0.4rem 0.2rem;
+  }
+  .spot-btn {
+    flex: 1;
+    padding: 0.5rem 0.4rem;
+    border-radius: 8px;
+    border: 2px solid var(--ocean-mid);
+    background: var(--card);
+    color: var(--ocean-mid);
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .spot-btn.active {
+    background: var(--ocean-mid);
+    color: #fff;
+  }
 </style>
 </head>
 <body>
@@ -228,6 +248,8 @@
 </noscript>
 
 <div class="container">
+  <div class="spot-switcher" id="spot-switcher"></div>
+
   <div id="bias-insight"></div>
 
   <div class="legend">
@@ -247,10 +269,27 @@
 
 <script>
 /* ===================== 設定 ===================== */
-const FORECAST_LAT = 34.436, FORECAST_LON = 135.339; // 二色浜(海水浴場付近)
-const AMEDAS_CODE = "62101";                  // 関空島アメダス
-const TIDE_PC = 27, TIDE_HC = 3;              // 大阪府・岸和田(参考値。実際の取得はfetch_tide.py側で使用)
-const FORECAST_DAYS = 16;                     // Open-Meteoが返せる最大日数
+const SPOTS = {
+  nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tideHc: 3 },  // 岸和田(近傍代用)
+  fukenoura: { name: "深日港", lat: 34.318964, lon: 135.142347, tideHc: 1 },
+};
+const AMEDAS_CODE = "62101"; // 関空島アメダス(両スポット共通の実測基準)
+const TIDE_PC = 27;          // 大阪府
+const FORECAST_DAYS = 16;    // Open-Meteoが返せる最大日数
+
+function getSavedSpot() {
+  try {
+    const saved = localStorage.getItem("nishikijp_spot");
+    if (saved && SPOTS[saved]) return saved;
+  } catch (e) { /* localStorage無効な環境では無視 */ }
+  return "nikaihama";
+}
+
+function saveSpot(spot) {
+  try { localStorage.setItem("nishikijp_spot", spot); } catch (e) { /* 無視 */ }
+}
+
+let currentSpot = getSavedSpot();
 
 /*
   月別バイアス補正テーブル。monthly_bias.json (analyze.pyの出力)を読み込んで使う。
@@ -403,7 +442,8 @@ function dateKey(d) {
 /* ===================== データ取得 ===================== */
 
 async function fetchForecast() {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${FORECAST_LAT}&longitude=${FORECAST_LON}` +
+  const spot = SPOTS[currentSpot];
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lon}` +
     `&hourly=temperature_2m,precipitation,weathercode,wind_speed_10m,wind_direction_10m` +
     `&models=jma_gsm` +
     `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
@@ -415,7 +455,8 @@ async function fetchForecast() {
 async function fetchPrecipProbability() {
   // 降水確率(%)はアンサンブル/複合モデルでないと出せないため、
   // JMA GSM単体ではなくBest Matchから別途取得し、雨マーク判定にだけ使う。
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${FORECAST_LAT}&longitude=${FORECAST_LON}` +
+  const spot = SPOTS[currentSpot];
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lon}` +
     `&hourly=precipitation_probability` +
     `&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
   try {
@@ -605,7 +646,8 @@ async function render() {
   if (cutoffIndex !== -1) {
     dateEntries = dateEntries.slice(0, cutoffIndex);
   }
-  const tideData = await loadTideData();
+  const tideDataAll = await loadTideData();
+  const tideData = tideDataAll[String(SPOTS[currentSpot].tideHc)] || {};
 
   const html = dateEntries.map((entry) => {
     const d = entry.date;
@@ -700,6 +742,26 @@ async function render() {
   container.innerHTML = html;
 }
 
+function renderSpotSwitcher() {
+  const el = document.getElementById("spot-switcher");
+  el.innerHTML = Object.keys(SPOTS).map(key => `
+    <button class="spot-btn ${key === currentSpot ? 'active' : ''}" data-spot="${key}">${SPOTS[key].name}</button>
+  `).join("");
+
+  el.querySelectorAll(".spot-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const spot = btn.getAttribute("data-spot");
+      if (spot === currentSpot) return;
+      currentSpot = spot;
+      saveSpot(spot);
+      renderSpotSwitcher();
+      document.getElementById("days-container").innerHTML = '<div class="loading">読み込み中…</div>';
+      render();
+    });
+  });
+}
+
+renderSpotSwitcher();
 render();
 </script>
 </body>
