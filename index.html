@@ -223,17 +223,37 @@
   .insight-box li:last-child {
     margin-bottom: 0;
   }
+  .weather-chart-toggle {
+    margin: 0.5rem 0.4rem 0;
+  }
+  .weather-chart-toggle summary {
+    list-style: none;
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.22rem 0.7rem;
+    cursor: pointer;
+  }
+  .weather-chart-toggle summary::-webkit-details-marker {
+    display: none;
+  }
+  .weather-chart-toggle .label-open { display: none; }
+  .weather-chart-toggle[open] .label-closed { display: none; }
+  .weather-chart-toggle[open] .label-open { display: inline; }
   .weather-chart-box {
-    margin: 0.8rem 0.4rem 0;
+    margin-top: 0.4rem;
     padding: 0.6rem;
     background: var(--card);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(11,95,165,0.08);
   }
   .weather-chart-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--ocean-deep);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
     margin-bottom: 0.4rem;
   }
   .weather-chart-box img {
@@ -325,11 +345,14 @@
 
   <div id="bias-insight"></div>
 
-  <div class="weather-chart-box">
-    <div class="weather-chart-title">地上天気図(気象庁)</div>
-    <div id="weather-chart-section"></div>
-    <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="weather-chart-link">気象庁の天気図ページを見る →</a>
-  </div>
+  <details class="weather-chart-toggle">
+    <summary><span class="label-closed">天気図を見る</span><span class="label-open">閉じる</span></summary>
+    <div class="weather-chart-box">
+      <div class="weather-chart-title" id="weather-chart-title">地上天気図(気象庁)</div>
+      <div id="weather-chart-section"></div>
+      <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="weather-chart-link">気象庁の天気図ページを見る →</a>
+    </div>
+  </details>
 
   <div class="legend">
     <span>関空列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
@@ -918,13 +941,20 @@ function candidateSpasTimes() {
   return results;
 }
 
+let weatherChartLoaded = false;
+
 function renderWeatherChart() {
+  if (weatherChartLoaded) return; // タブを開くたびに何度も取得しないよう1回だけにする
+  weatherChartLoaded = true;
+
   const el = document.getElementById("weather-chart-section");
+  const titleEl = document.getElementById("weather-chart-title");
   const candidates = candidateSpasTimes();
   if (candidates.length === 0) {
     el.innerHTML = '<div class="muted">天気図を取得できませんでした</div>';
     return;
   }
+
   let idx = 0;
   const img = document.createElement("img");
   img.alt = "地上天気図(気象庁)";
@@ -936,13 +966,21 @@ function renderWeatherChart() {
       el.innerHTML = '<div class="muted">天気図を取得できませんでした</div>';
     }
   };
+  img.onload = () => {
+    const t = candidates[idx];
+    const hh = String(t.getHours()).padStart(2, "0");
+    titleEl.textContent = `地上天気図(気象庁) — ${t.getMonth()+1}月${t.getDate()}日 ${hh}時発表`;
+  };
   img.src = formatSpasUrl(candidates[0]);
   el.innerHTML = "";
   el.appendChild(img);
 }
 
+document.querySelector(".weather-chart-toggle").addEventListener("toggle", (e) => {
+  if (e.target.open) renderWeatherChart();
+});
+
 renderSpotSwitcher();
-renderWeatherChart();
 render();
 </script>
 </body>
