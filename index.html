@@ -223,6 +223,32 @@
   .insight-box li:last-child {
     margin-bottom: 0;
   }
+  .weather-chart-box {
+    margin: 0.8rem 0.4rem 0;
+    padding: 0.6rem;
+    background: var(--card);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(11,95,165,0.08);
+  }
+  .weather-chart-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    margin-bottom: 0.4rem;
+  }
+  .weather-chart-box img {
+    width: 100%;
+    border-radius: 6px;
+    display: block;
+  }
+  .weather-chart-link {
+    display: block;
+    text-align: right;
+    font-size: 0.68rem;
+    color: var(--ocean-mid);
+    margin-top: 0.3rem;
+    text-decoration: none;
+  }
   .loading {
     text-align: center;
     color: var(--text-secondary);
@@ -298,6 +324,12 @@
   <div class="spot-switcher" id="spot-switcher"></div>
 
   <div id="bias-insight"></div>
+
+  <div class="weather-chart-box">
+    <div class="weather-chart-title">地上天気図(気象庁)</div>
+    <div id="weather-chart-section"></div>
+    <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="weather-chart-link">気象庁の天気図ページを見る →</a>
+  </div>
 
   <div class="legend">
     <span>関空列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
@@ -858,7 +890,59 @@ function renderSpotSwitcher() {
   });
 }
 
+function formatSpasUrl(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const d = String(dateObj.getDate()).padStart(2, "0");
+  const hh = String(dateObj.getHours()).padStart(2, "0");
+  const yyyyMM = `${y}${m}`;
+  const yyyyMMddHHmmss = `${y}${m}${d}${hh}0000`;
+  return `https://www.data.jma.go.jp/fcd/yoho/data/wxchart/quick/${yyyyMM}/SPAS_COLOR_${yyyyMMddHHmmss}.png`;
+}
+
+function candidateSpasTimes() {
+  // 日本周辺域地上天気図(SPAS)は 3,6,9,12,15,18,21時(JST)の1日7回発表。
+  // 発表〜配信までの遅延を考慮し、新しい方から順に候補を並べて
+  // 読み込み失敗時は1つ前の時刻にフォールバックする。
+  const validHours = [21, 18, 15, 12, 9, 6, 3];
+  const now = new Date();
+  const results = [];
+  for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+    for (const h of validHours) {
+      const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset, h, 40, 0, 0);
+      if (t <= now) {
+        results.push(new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset, h, 0, 0, 0));
+      }
+    }
+  }
+  return results;
+}
+
+function renderWeatherChart() {
+  const el = document.getElementById("weather-chart-section");
+  const candidates = candidateSpasTimes();
+  if (candidates.length === 0) {
+    el.innerHTML = '<div class="muted">天気図を取得できませんでした</div>';
+    return;
+  }
+  let idx = 0;
+  const img = document.createElement("img");
+  img.alt = "地上天気図(気象庁)";
+  img.onerror = () => {
+    idx++;
+    if (idx < candidates.length) {
+      img.src = formatSpasUrl(candidates[idx]);
+    } else {
+      el.innerHTML = '<div class="muted">天気図を取得できませんでした</div>';
+    }
+  };
+  img.src = formatSpasUrl(candidates[0]);
+  el.innerHTML = "";
+  el.appendChild(img);
+}
+
 renderSpotSwitcher();
+renderWeatherChart();
 render();
 </script>
 </body>
