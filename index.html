@@ -229,6 +229,25 @@
     padding: 2rem;
     font-size: 0.85rem;
   }
+  .prev-day-toggle {
+    margin: 0 0 0.6rem;
+  }
+  .prev-day-toggle summary {
+    list-style: none;
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--ocean-mid);
+    background: var(--card);
+    border: 1px solid var(--ocean-mid);
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    margin: 0.3rem 0.4rem;
+    cursor: pointer;
+  }
+  .prev-day-toggle summary::-webkit-details-marker {
+    display: none;
+  }
   .spot-switcher {
     display: flex;
     gap: 0.5rem;
@@ -464,7 +483,7 @@ async function fetchForecast() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lon}` +
     `&hourly=temperature_2m,precipitation,weathercode,wind_speed_10m,wind_direction_10m` +
     `&models=jma_gsm` +
-    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
+    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_days=1`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Open-Meteo取得失敗");
   return res.json();
@@ -478,7 +497,7 @@ async function fetchKixOwnForecast() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${KIX_ACTUAL_LAT}&longitude=${KIX_ACTUAL_LON}` +
     `&hourly=wind_speed_10m,wind_direction_10m` +
     `&models=jma_gsm` +
-    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
+    `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_days=1`;
   try {
     const res = await fetch(url);
     if (!res.ok) return {};
@@ -503,7 +522,7 @@ async function fetchPrecipProbability() {
   const spot = SPOTS[currentSpot];
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lon}` +
     `&hourly=precipitation_probability` +
-    `&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_hours=6`;
+    `&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_days=1`;
   try {
     const res = await fetch(url);
     if (!res.ok) return {};
@@ -661,8 +680,8 @@ async function render() {
     if (hour < 6 || hour >= 20) continue; // 0-5時、20-23時は表示しない
 
     const key = dateKey(t);
-    const isPast = t < now && t.getHours() !== now.getHours();
-    const isNow = t.getHours() === now.getHours() && key === dateKey(now);
+    const isNow = key === dateKey(now) && hour === now.getHours();
+    const isPast = t < now && !isNow;
     const isFuture = !isPast && !isNow;
 
     const rawWind = forecast.hourly.wind_speed_10m[i];
@@ -698,7 +717,7 @@ async function render() {
   const tideDataAll = await loadTideData();
   const tideData = tideDataAll[String(SPOTS[currentSpot].tideHc)] || {};
 
-  const html = dateEntries.map((entry) => {
+  const dayBlockFn = (entry) => {
     const d = entry.date;
     const tideDay = tideData[dateKey(d)] || null;
     const rows = entry.rows;
@@ -787,9 +806,19 @@ async function render() {
         </div>
       </div>
     `;
-  }).join("");
+  };
 
-  container.innerHTML = html;
+  const todayKey = dateKey(now);
+  const prevEntries = dateEntries.filter(e => dateKey(e.date) < todayKey);
+  const restEntries = dateEntries.filter(e => dateKey(e.date) >= todayKey);
+
+  const prevHtml = prevEntries.map(dayBlockFn).join("");
+  const html = restEntries.map(dayBlockFn).join("");
+
+  container.innerHTML =
+    (prevHtml
+      ? `<details class="prev-day-toggle"><summary>前日の実績を見る</summary>${prevHtml}</details>`
+      : "") + html;
 }
 
 function renderSpotSwitcher() {
