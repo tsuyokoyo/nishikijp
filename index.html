@@ -235,13 +235,18 @@
   .prev-day-toggle + .day-block {
     margin-top: 0;
   }
+  .prev-day-toggle[open] > .day-block:first-of-type {
+    margin-top: 0;
+  }
   .prev-day-toggle summary {
     list-style: none;
     display: inline-block;
     font-size: 0.68rem;
     font-weight: 700;
-    color: #fff;
-    background: var(--ocean-mid);
+    color: var(--ocean-deep);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-bottom: none;
     border-radius: 6px 6px 0 0;
     padding: 0.22rem 0.7rem;
     margin-left: 0.6rem;
@@ -822,7 +827,7 @@ async function render() {
 
   container.innerHTML =
     (prevHtml
-      ? `<details class="prev-day-toggle"><summary><span class="label-closed">↑前日を見る</span><span class="label-open">↓閉じる</span></summary>${prevHtml}</details>`
+      ? `<details class="prev-day-toggle"><summary><span class="label-closed">前日を見る</span><span class="label-open">閉じる</span></summary>${prevHtml}</details>`
       : "") + html;
 }
 
