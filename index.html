@@ -230,24 +230,29 @@
     font-size: 0.85rem;
   }
   .prev-day-toggle {
-    margin: 0 0 0.6rem;
+    margin: 0;
+  }
+  .prev-day-toggle + .day-block {
+    margin-top: 0;
   }
   .prev-day-toggle summary {
     list-style: none;
     display: inline-block;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    color: var(--ocean-mid);
-    background: var(--card);
-    border: 1px solid var(--ocean-mid);
-    border-radius: 6px;
-    padding: 0.2rem 0.6rem;
-    margin: 0.3rem 0.4rem;
+    color: #fff;
+    background: var(--ocean-mid);
+    border-radius: 6px 6px 0 0;
+    padding: 0.22rem 0.7rem;
+    margin-left: 0.6rem;
     cursor: pointer;
   }
   .prev-day-toggle summary::-webkit-details-marker {
     display: none;
   }
+  .prev-day-toggle .label-open { display: none; }
+  .prev-day-toggle[open] .label-closed { display: none; }
+  .prev-day-toggle[open] .label-open { display: inline; }
   .spot-switcher {
     display: flex;
     gap: 0.5rem;
@@ -817,7 +822,7 @@ async function render() {
 
   container.innerHTML =
     (prevHtml
-      ? `<details class="prev-day-toggle"><summary>前日の実績を見る</summary>${prevHtml}</details>`
+      ? `<details class="prev-day-toggle"><summary><span class="label-closed">↑前日を見る</span><span class="label-open">↓閉じる</span></summary>${prevHtml}</details>`
       : "") + html;
 }
 
