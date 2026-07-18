@@ -575,16 +575,14 @@ async function fetchAmedasNow() {
   };
 }
 
-async function fetchAmedasHistoryToday() {
-  // 今日の実際の毎時観測値を取得する(3時間ブロック単位のAPIを使用)。
-  // 表示範囲が6〜19時のため、該当するブロックだけ取得すればよい。
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+async function fetchAmedasHistoryForDate(targetDate, maxHour) {
+  // 指定した日付の実際の毎時観測値を取得する(3時間ブロック単位のAPIを使用)。
+  // maxHour: この時刻までを取得する(今日なら現在時刻まで、前日なら表示範囲の最後まで)。
+  const y = targetDate.getFullYear();
+  const m = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const d = String(targetDate.getDate()).padStart(2, "0");
   const dateStr = `${y}${m}${d}`;
-  const currentHour = now.getHours();
-  const blockStarts = [6, 9, 12, 15, 18].filter(bs => bs <= currentHour);
+  const blockStarts = [6, 9, 12, 15, 18].filter(bs => bs <= maxHour);
 
   const result = {};
   for (const bs of blockStarts) {
@@ -594,7 +592,7 @@ async function fetchAmedasHistoryToday() {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
-      for (let h = bs; h < bs + 3 && h <= currentHour; h++) {
+      for (let h = bs; h < bs + 3 && h <= maxHour; h++) {
         const hh = String(h).padStart(2, "0");
         const key = `${dateStr}${hh}0000`;
         const entry = data[key];
@@ -606,7 +604,7 @@ async function fetchAmedasHistoryToday() {
         }
       }
     } catch (e) {
-      console.warn(`アメダス過去データ取得失敗(ブロック${h3}時)`, e);
+      console.warn(`アメダス過去データ取得失敗(${dateStr} ブロック${h3}時)`, e);
     }
   }
   return result;
@@ -667,12 +665,16 @@ async function render() {
   const container = document.getElementById("days-container");
   const now = new Date();
 
-  let forecast, amedasNow, amedasHistory, precipProbMap, kixOwnForecast;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  let forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, kixOwnForecast;
   try {
-    [forecast, amedasNow, amedasHistory, precipProbMap, kixOwnForecast] = await Promise.all([
+    [forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, kixOwnForecast] = await Promise.all([
       fetchForecast(),
       fetchAmedasNow().catch(() => null),
-      fetchAmedasHistoryToday().catch(() => ({})),
+      fetchAmedasHistoryForDate(now, now.getHours()).catch(() => ({})),
+      fetchAmedasHistoryForDate(yesterday, 19).catch(() => ({})),
       fetchPrecipProbability(),
       fetchKixOwnForecast(),
     ]);
@@ -680,6 +682,11 @@ async function render() {
     container.innerHTML = `<div class="error-msg">データ取得に失敗しました(${e.message})。時間をおいて再読み込みしてください。</div>`;
     return;
   }
+
+  const amedasHistoryByDate = {
+    [dateKey(now)]: amedasHistoryToday,
+    [dateKey(yesterday)]: amedasHistoryYesterday,
+  };
 
   const times = forecast.hourly.time;
   const rowsByDate = new Map();
@@ -736,6 +743,7 @@ async function render() {
       const kixCorrected = r.state === "future";
       const hourKey = r.time.getHours();
       let kixValueNum, kixValue, kixDir;
+      const historyForThisDate = amedasHistoryByDate[dateKey(r.time)] || {};
       if (kixCorrected) {
         // 関空そのものの座標での予報にバイアス補正をかける(選択中スポットの予報とは別物)
         kixValueNum = applyBias(r.kixOwnWind, r.time);
@@ -749,13 +757,13 @@ async function render() {
           kixValueNum = amedasNow.windMs;
           kixDir = amedasNow.windDir;
         } else {
-          const hist = amedasHistory[hourKey];
+          const hist = historyForThisDate[hourKey];
           kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
           kixDir = hist ? hist.windDir : null;
         }
         kixValue = fmt(kixValueNum, 1);
       } else {
-        const hist = amedasHistory[hourKey];
+        const hist = historyForThisDate[hourKey];
         kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
         kixDir = hist ? hist.windDir : null;
         kixValue = fmt(kixValueNum, 1);
