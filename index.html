@@ -223,51 +223,12 @@
   .insight-box li:last-child {
     margin-bottom: 0;
   }
-  .weather-chart-toggle {
-    margin: 0.5rem 0.4rem 0;
-  }
-  .weather-chart-toggle summary {
-    list-style: none;
-    display: inline-block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--ocean-deep);
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.22rem 0.7rem;
-    cursor: pointer;
-  }
-  .weather-chart-toggle summary::-webkit-details-marker {
-    display: none;
-  }
-  .weather-chart-toggle .label-open { display: none; }
-  .weather-chart-toggle[open] .label-closed { display: none; }
-  .weather-chart-toggle[open] .label-open { display: inline; }
-  .weather-chart-box {
-    margin-top: 0.4rem;
-    padding: 0.6rem;
-    background: var(--card);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(11,95,165,0.08);
-  }
-  .weather-chart-title {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.4rem;
-  }
-  .weather-chart-box img {
-    width: 100%;
-    border-radius: 6px;
-    display: block;
-  }
-  .weather-chart-link {
+  .insight-link {
     display: block;
     text-align: right;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     color: var(--ocean-mid);
-    margin-top: 0.3rem;
-    text-decoration: none;
+    margin-top: 0.4rem;
   }
   .loading {
     text-align: center;
@@ -344,15 +305,6 @@
   <div class="spot-switcher" id="spot-switcher"></div>
 
   <div id="bias-insight"></div>
-
-  <details class="weather-chart-toggle">
-    <summary><span class="label-closed">天気図を見る</span><span class="label-open">閉じる</span></summary>
-    <div class="weather-chart-box">
-      <div class="weather-chart-title" id="weather-chart-title">気圧配置図(実測ベース・自前描画)</div>
-      <div id="weather-chart-section"></div>
-      <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="weather-chart-link">気象庁の公式天気図と見比べる →</a>
-    </div>
-  </details>
 
   <div class="legend">
     <span>関空列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
@@ -448,6 +400,7 @@ function renderBiasInsight() {
     <div class="insight-box">
       <div class="insight-title">予報のクセ(過去3年の実測との比較)</div>
       <ul>${lines.join("")}</ul>
+      <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="insight-link">気象庁の天気図を見る</a>
     </div>
   `;
 }
@@ -912,214 +865,6 @@ function renderSpotSwitcher() {
     });
   });
 }
-
-/* ===================== 気圧配置図(自前描画) ===================== */
-
-// 日本周辺をカバーする粗いグリッド(緯度・経度は西→東、南→北の昇順)
-const PRESSURE_GRID_LATS = [24, 28, 32, 36, 40, 44, 48];
-const PRESSURE_GRID_LONS = [122, 127, 132, 137, 142, 147];
-
-async function fetchPressureGrid() {
-  const latList = [], lonList = [];
-  PRESSURE_GRID_LATS.forEach(lat => PRESSURE_GRID_LONS.forEach(lon => {
-    latList.push(lat); lonList.push(lon);
-  }));
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latList.join(",")}` +
-    `&longitude=${lonList.join(",")}&current=pressure_msl&timezone=Asia%2FTokyo`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("気圧データ取得失敗");
-  const data = await res.json();
-
-  const grid = [];
-  let idx = 0;
-  let issuedAt = null;
-  for (let j = 0; j < PRESSURE_GRID_LATS.length; j++) {
-    const row = [];
-    for (let i = 0; i < PRESSURE_GRID_LONS.length; i++) {
-      const loc = Array.isArray(data) ? data[idx] : data;
-      row.push(loc.current.pressure_msl);
-      if (!issuedAt) issuedAt = loc.current.time;
-      idx++;
-    }
-    grid.push(row);
-  }
-  return { grid, issuedAt };
-}
-
-function marchingSquaresSegments(grid, xs, ys, level) {
-  const segments = [];
-  const lerp = (a, b, va, vb) => a + (b - a) * (level - va) / (vb - va);
-
-  for (let j = 0; j < ys.length - 1; j++) {
-    for (let i = 0; i < xs.length - 1; i++) {
-      const tl = grid[j + 1][i], tr = grid[j + 1][i + 1];
-      const bl = grid[j][i], br = grid[j][i + 1];
-      const x0 = xs[i], x1 = xs[i + 1], y0 = ys[j], y1 = ys[j + 1];
-
-      const state = (tl >= level ? 8 : 0) | (tr >= level ? 4 : 0) |
-                    (br >= level ? 2 : 0) | (bl >= level ? 1 : 0);
-      if (state === 0 || state === 15) continue;
-
-      const top = [lerp(x0, x1, tl, tr), y1];
-      const right = [x1, lerp(y0, y1, br, tr)];
-      const bottom = [lerp(x0, x1, bl, br), y0];
-      const left = [x0, lerp(y0, y1, bl, tl)];
-
-      const cases = {
-        1: [[left, bottom]], 2: [[bottom, right]], 3: [[left, right]],
-        4: [[top, right]], 5: [[top, left], [bottom, right]], 6: [[top, bottom]],
-        7: [[top, left]], 8: [[top, left]], 9: [[top, bottom]],
-        10: [[top, right], [left, bottom]], 11: [[top, right]],
-        12: [[left, right]], 13: [[bottom, right]], 14: [[left, bottom]],
-      };
-      (cases[state] || []).forEach(seg => segments.push(seg));
-    }
-  }
-  return segments;
-}
-
-function bilinearUpsample(coarseGrid, coarseXs, coarseYs, fineXs, fineYs) {
-  function interpAt(x, y) {
-    let i = 0; while (i < coarseXs.length - 2 && coarseXs[i + 1] < x) i++;
-    let j = 0; while (j < coarseYs.length - 2 && coarseYs[j + 1] < y) j++;
-    const x0 = coarseXs[i], x1 = coarseXs[i + 1], y0 = coarseYs[j], y1 = coarseYs[j + 1];
-    const tx = (x - x0) / (x1 - x0), ty = (y - y0) / (y1 - y0);
-    const v00 = coarseGrid[j][i], v10 = coarseGrid[j][i + 1];
-    const v01 = coarseGrid[j + 1][i], v11 = coarseGrid[j + 1][i + 1];
-    const top = v00 * (1 - tx) + v10 * tx;
-    const bottom = v01 * (1 - tx) + v11 * tx;
-    return top * (1 - ty) + bottom * ty;
-  }
-  return fineYs.map(y => fineXs.map(x => interpAt(x, y)));
-}
-
-function renderPressureMapSvg(grid, issuedAt, coastlinePath) {
-  const W = 340, H = 380, pad = 24;
-  const lonMin = PRESSURE_GRID_LONS[0], lonMax = PRESSURE_GRID_LONS[PRESSURE_GRID_LONS.length - 1];
-  const latMin = PRESSURE_GRID_LATS[0], latMax = PRESSURE_GRID_LATS[PRESSURE_GRID_LATS.length - 1];
-
-  const px = lon => pad + (lon - lonMin) / (lonMax - lonMin) * (W - pad * 2);
-  const py = lat => (H - pad) - (lat - latMin) / (latMax - latMin) * (H - pad * 2);
-
-  // 等圧線をなだらかに見せるため、粗いグリッドを細かく補間してから等高線を引く
-  const FINE_LON_N = 70, FINE_LAT_N = 80;
-  const fineLons = Array.from({ length: FINE_LON_N }, (_, i) => lonMin + i * (lonMax - lonMin) / (FINE_LON_N - 1));
-  const fineLats = Array.from({ length: FINE_LAT_N }, (_, i) => latMin + i * (latMax - latMin) / (FINE_LAT_N - 1));
-  const fineGrid = bilinearUpsample(grid, PRESSURE_GRID_LONS, PRESSURE_GRID_LATS, fineLons, fineLats);
-  const xs = fineLons.map(px);
-  const ys = fineLats.map(py);
-
-  let allVals = grid.flat();
-  const minP = Math.min(...allVals), maxP = Math.max(...allVals);
-  const levels = [];
-  for (let lv = Math.ceil(minP / 4) * 4; lv <= maxP; lv += 4) levels.push(lv);
-
-  let lines = "";
-  levels.forEach(level => {
-    const segs = marchingSquaresSegments(fineGrid, xs, ys, level);
-    segs.forEach(([[x1, y1], [x2, y2]]) => {
-      lines += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#3E7CB5" stroke-width="1.1"/>`;
-    });
-    if (segs.length > 0) {
-      const [pt] = segs[Math.floor(segs.length / 2)];
-      lines += `<text x="${pt[0].toFixed(1)}" y="${pt[1].toFixed(1)}" font-size="8" fill="#1D5A96">${level}</text>`;
-    }
-  });
-
-  // 極大/極小点にH/Lを表示(元の粗いグリッドで判定)
-  let markers = "";
-  for (let j = 0; j < PRESSURE_GRID_LATS.length; j++) {
-    for (let i = 0; i < PRESSURE_GRID_LONS.length; i++) {
-      const v = grid[j][i];
-      const neighbors = [
-        j > 0 ? grid[j - 1][i] : null, j < grid.length - 1 ? grid[j + 1][i] : null,
-        i > 0 ? grid[j][i - 1] : null, i < grid[j].length - 1 ? grid[j][i + 1] : null,
-      ].filter(x => x != null);
-      const isHigh = neighbors.every(n => v >= n) && neighbors.length === 4;
-      const isLow = neighbors.every(n => v <= n) && neighbors.length === 4;
-      if (isHigh || isLow) {
-        const x = px(PRESSURE_GRID_LONS[i]), y = py(PRESSURE_GRID_LATS[j]);
-        markers += `<text x="${x}" y="${y}" font-size="15" font-weight="700" fill="${isHigh ? '#1D6FA0' : '#E8734A'}" text-anchor="middle">${isHigh ? 'H' : 'L'}</text>`;
-      }
-    }
-  }
-
-  const osakaX = px(135.3), osakaY = py(34.4);
-  const osakaMarker = `<circle cx="${osakaX}" cy="${osakaY}" r="3.5" fill="#E8734A" stroke="#fff" stroke-width="1"/>` +
-    `<text x="${osakaX + 6}" y="${osakaY + 4}" font-size="9" fill="#333">大阪湾</text>`;
-
-  return `
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%; background:#DCEEFB; border-radius:6px;">
-      <path d="${coastlinePath || ''}" fill="#F0EBD8" stroke="#B8AE8C" stroke-width="0.6"/>
-      ${lines}
-      ${markers}
-      ${osakaMarker}
-    </svg>
-  `;
-}
-
-let cachedCoastlinePath = null;
-
-async function fetchCoastlinePath() {
-  if (cachedCoastlinePath) return cachedCoastlinePath;
-  const lonMin = PRESSURE_GRID_LONS[0], lonMax = PRESSURE_GRID_LONS[PRESSURE_GRID_LONS.length - 1];
-  const latMin = PRESSURE_GRID_LATS[0], latMax = PRESSURE_GRID_LATS[PRESSURE_GRID_LATS.length - 1];
-  const W = 340, H = 380, pad = 24;
-  const px = lon => pad + (lon - lonMin) / (lonMax - lonMin) * (W - pad * 2);
-  const py = lat => (H - pad) - (lat - latMin) / (latMax - latMin) * (H - pad * 2);
-
-  const res = await fetch("https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson");
-  if (!res.ok) throw new Error("地図データ取得失敗");
-  const geojson = await res.json();
-
-  let d = "";
-  geojson.features.forEach(feature => {
-    const geom = feature.geometry;
-    if (!geom) return;
-    const polygons = geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
-    polygons.forEach(rings => {
-      rings.forEach(ring => {
-        ring.forEach(([lon, lat], idx) => {
-          const x = px(lon), y = py(lat);
-          d += (idx === 0 ? `M${x.toFixed(1)},${y.toFixed(1)} ` : `L${x.toFixed(1)},${y.toFixed(1)} `);
-        });
-        d += "Z ";
-      });
-    });
-  });
-  cachedCoastlinePath = d;
-  return d;
-}
-
-let weatherChartLoaded = false;
-
-async function renderWeatherChart() {
-  if (weatherChartLoaded) return; // タブを開くたびに何度も取得しないよう1回だけにする
-  weatherChartLoaded = true;
-
-  const el = document.getElementById("weather-chart-section");
-  const titleEl = document.getElementById("weather-chart-title");
-  el.innerHTML = '<div class="muted">読み込み中…</div>';
-
-  try {
-    const [{ grid, issuedAt }, coastlinePath] = await Promise.all([
-      fetchPressureGrid(),
-      fetchCoastlinePath().catch(() => ""),
-    ]);
-    el.innerHTML = renderPressureMapSvg(grid, issuedAt, coastlinePath);
-    if (issuedAt) {
-      const t = new Date(issuedAt);
-      titleEl.textContent = `気圧配置図(自前描画・実測ベース) — ${t.getMonth()+1}月${t.getDate()}日 ${t.getHours()}時時点`;
-    }
-  } catch (e) {
-    el.innerHTML = '<div class="muted">気圧データを取得できませんでした</div>';
-    console.warn(e);
-  }
-}
-
-document.querySelector(".weather-chart-toggle").addEventListener("toggle", (e) => {
-  if (e.target.open) renderWeatherChart();
-});
 
 renderSpotSwitcher();
 render();
