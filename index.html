@@ -978,7 +978,22 @@ function marchingSquaresSegments(grid, xs, ys, level) {
   return segments;
 }
 
-function renderPressureMapSvg(grid, issuedAt) {
+function bilinearUpsample(coarseGrid, coarseXs, coarseYs, fineXs, fineYs) {
+  function interpAt(x, y) {
+    let i = 0; while (i < coarseXs.length - 2 && coarseXs[i + 1] < x) i++;
+    let j = 0; while (j < coarseYs.length - 2 && coarseYs[j + 1] < y) j++;
+    const x0 = coarseXs[i], x1 = coarseXs[i + 1], y0 = coarseYs[j], y1 = coarseYs[j + 1];
+    const tx = (x - x0) / (x1 - x0), ty = (y - y0) / (y1 - y0);
+    const v00 = coarseGrid[j][i], v10 = coarseGrid[j][i + 1];
+    const v01 = coarseGrid[j + 1][i], v11 = coarseGrid[j + 1][i + 1];
+    const top = v00 * (1 - tx) + v10 * tx;
+    const bottom = v01 * (1 - tx) + v11 * tx;
+    return top * (1 - ty) + bottom * ty;
+  }
+  return fineYs.map(y => fineXs.map(x => interpAt(x, y)));
+}
+
+function renderPressureMapSvg(grid, issuedAt, coastlinePath) {
   const W = 340, H = 380, pad = 24;
   const lonMin = PRESSURE_GRID_LONS[0], lonMax = PRESSURE_GRID_LONS[PRESSURE_GRID_LONS.length - 1];
   const latMin = PRESSURE_GRID_LATS[0], latMax = PRESSURE_GRID_LATS[PRESSURE_GRID_LATS.length - 1];
@@ -986,8 +1001,13 @@ function renderPressureMapSvg(grid, issuedAt) {
   const px = lon => pad + (lon - lonMin) / (lonMax - lonMin) * (W - pad * 2);
   const py = lat => (H - pad) - (lat - latMin) / (latMax - latMin) * (H - pad * 2);
 
-  const xs = PRESSURE_GRID_LONS.map(px);
-  const ys = PRESSURE_GRID_LATS.map(py);
+  // 等圧線をなだらかに見せるため、粗いグリッドを細かく補間してから等高線を引く
+  const FINE_LON_N = 70, FINE_LAT_N = 80;
+  const fineLons = Array.from({ length: FINE_LON_N }, (_, i) => lonMin + i * (lonMax - lonMin) / (FINE_LON_N - 1));
+  const fineLats = Array.from({ length: FINE_LAT_N }, (_, i) => latMin + i * (latMax - latMin) / (FINE_LAT_N - 1));
+  const fineGrid = bilinearUpsample(grid, PRESSURE_GRID_LONS, PRESSURE_GRID_LATS, fineLons, fineLats);
+  const xs = fineLons.map(px);
+  const ys = fineLats.map(py);
 
   let allVals = grid.flat();
   const minP = Math.min(...allVals), maxP = Math.max(...allVals);
@@ -996,18 +1016,17 @@ function renderPressureMapSvg(grid, issuedAt) {
 
   let lines = "";
   levels.forEach(level => {
-    const segs = marchingSquaresSegments(grid, xs, ys, level);
+    const segs = marchingSquaresSegments(fineGrid, xs, ys, level);
     segs.forEach(([[x1, y1], [x2, y2]]) => {
-      lines += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#4A7FB5" stroke-width="1.3"/>`;
+      lines += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#3E7CB5" stroke-width="1.1"/>`;
     });
-    // ラベル(一番左側のグリッド付近に数値を表示)
     if (segs.length > 0) {
-      const [pt] = segs[0];
-      lines += `<text x="${pt[0].toFixed(1)}" y="${pt[1].toFixed(1)}" font-size="8" fill="#2E6FA0">${level}</text>`;
+      const [pt] = segs[Math.floor(segs.length / 2)];
+      lines += `<text x="${pt[0].toFixed(1)}" y="${pt[1].toFixed(1)}" font-size="8" fill="#1D5A96">${level}</text>`;
     }
   });
 
-  // 極大/極小点にH/Lを表示(簡易判定)
+  // 極大/極小点にH/Lを表示(元の粗いグリッドで判定)
   let markers = "";
   for (let j = 0; j < PRESSURE_GRID_LATS.length; j++) {
     for (let i = 0; i < PRESSURE_GRID_LONS.length; i++) {
@@ -1025,18 +1044,51 @@ function renderPressureMapSvg(grid, issuedAt) {
     }
   }
 
-  // 二色浜・岬町付近のマーカー(大阪湾: 緯度34.4, 経度135.3付近)
   const osakaX = px(135.3), osakaY = py(34.4);
   const osakaMarker = `<circle cx="${osakaX}" cy="${osakaY}" r="3.5" fill="#E8734A" stroke="#fff" stroke-width="1"/>` +
     `<text x="${osakaX + 6}" y="${osakaY + 4}" font-size="9" fill="#333">大阪湾</text>`;
 
   return `
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%; background:#F4FAFD; border-radius:6px;">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%; background:#DCEEFB; border-radius:6px;">
+      <path d="${coastlinePath || ''}" fill="#F0EBD8" stroke="#B8AE8C" stroke-width="0.6"/>
       ${lines}
       ${markers}
       ${osakaMarker}
     </svg>
   `;
+}
+
+let cachedCoastlinePath = null;
+
+async function fetchCoastlinePath() {
+  if (cachedCoastlinePath) return cachedCoastlinePath;
+  const lonMin = PRESSURE_GRID_LONS[0], lonMax = PRESSURE_GRID_LONS[PRESSURE_GRID_LONS.length - 1];
+  const latMin = PRESSURE_GRID_LATS[0], latMax = PRESSURE_GRID_LATS[PRESSURE_GRID_LATS.length - 1];
+  const W = 340, H = 380, pad = 24;
+  const px = lon => pad + (lon - lonMin) / (lonMax - lonMin) * (W - pad * 2);
+  const py = lat => (H - pad) - (lat - latMin) / (latMax - latMin) * (H - pad * 2);
+
+  const res = await fetch("https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson");
+  if (!res.ok) throw new Error("地図データ取得失敗");
+  const geojson = await res.json();
+
+  let d = "";
+  geojson.features.forEach(feature => {
+    const geom = feature.geometry;
+    if (!geom) return;
+    const polygons = geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
+    polygons.forEach(rings => {
+      rings.forEach(ring => {
+        ring.forEach(([lon, lat], idx) => {
+          const x = px(lon), y = py(lat);
+          d += (idx === 0 ? `M${x.toFixed(1)},${y.toFixed(1)} ` : `L${x.toFixed(1)},${y.toFixed(1)} `);
+        });
+        d += "Z ";
+      });
+    });
+  });
+  cachedCoastlinePath = d;
+  return d;
 }
 
 let weatherChartLoaded = false;
@@ -1050,8 +1102,11 @@ async function renderWeatherChart() {
   el.innerHTML = '<div class="muted">読み込み中…</div>';
 
   try {
-    const { grid, issuedAt } = await fetchPressureGrid();
-    el.innerHTML = renderPressureMapSvg(grid, issuedAt);
+    const [{ grid, issuedAt }, coastlinePath] = await Promise.all([
+      fetchPressureGrid(),
+      fetchCoastlinePath().catch(() => ""),
+    ]);
+    el.innerHTML = renderPressureMapSvg(grid, issuedAt, coastlinePath);
     if (issuedAt) {
       const t = new Date(issuedAt);
       titleEl.textContent = `気圧配置図(自前描画・実測ベース) — ${t.getMonth()+1}月${t.getDate()}日 ${t.getHours()}時時点`;
