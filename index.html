@@ -557,9 +557,17 @@ async function fetchPrecipProbability() {
 }
 
 async function fetchAmedasLatestTime() {
+  // latest_time.txt は "2026-07-23T14:50:00+09:00" のようなJST(+09:00)のISO文字列。
+  // これを new Date() でパースしてから toISOString() すると内部的にUTCへ変換されてしまい、
+  // 「現在」行のデータ取得URLが9時間前のJSTタイムスタンプを指してしまうバグの原因になっていた
+  // (=ブラウザのタイムゾーンに関わらず必ず9時間ズレる)。
+  // そのため、Dateオブジェクトを経由せず文字列から直接JSTの日時部分を取り出す。
   const res = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.txt");
-  const text = await res.text();
-  return new Date(text.trim());
+  const text = (await res.text()).trim();
+  const m = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) throw new Error("latest_time.txt の形式が想定と異なります");
+  const [, y, mo, d, h, mi] = m;
+  return `${y}${mo}${d}${h}${mi}`; // YYYYMMDDHHMM (JST)
 }
 
 function amedasDirCodeToDeg(code) {
@@ -569,15 +577,14 @@ function amedasDirCodeToDeg(code) {
 }
 
 async function fetchAmedasNow() {
-  const latest = await fetchAmedasLatestTime();
-  const ts = latest.toISOString().replace(/[-:T]/g, "").slice(0, 12) + "00";
+  const latestYmdhm = await fetchAmedasLatestTime();
+  const ts = `${latestYmdhm}00`;
   const url = `https://www.jma.go.jp/bosai/amedas/data/map/${ts}.json`;
   const res = await fetch(url);
   const data = await res.json();
   const station = data[AMEDAS_CODE];
   if (!station) return null;
   return {
-    time: latest,
     windMs: station.wind ? station.wind[0] : null,
     windDir: amedasDirCodeToDeg(station.windDirection ? station.windDirection[0] : null),
   };
