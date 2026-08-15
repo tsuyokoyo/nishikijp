@@ -283,7 +283,7 @@
     background: var(--card);
     color: var(--ocean-mid);
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     cursor: pointer;
   }
   .spot-btn.active {
@@ -307,7 +307,7 @@
   <div id="bias-insight"></div>
 
   <div class="legend">
-    <span>関空列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
+    <span>右列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
     <span><span class="dot" style="background:var(--ocean-mid);"></span>補正後の予測(未来)</span>
   </div>
 
@@ -316,19 +316,18 @@
   </div>
 
   <footer>
-    データ: 気象庁アメダス(関西空港 62101) / Open-Meteo / tide736.net<br>
-    予報の補正値は過去3年の実測との誤差統計に基づく参考値です
+    データ: 気象庁アメダス(スポットに応じた最寄り観測点) / Open-Meteo / tide736.net<br>
+    予報の補正値は過去3年の実測との誤差統計に基づく参考値です(関空基準)
   </footer>
 </div>
 
 <script>
 /* ===================== 設定 ===================== */
 const SPOTS = {
-  nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tideHc: 3 },  // 岸和田(近傍代用)
-  fukenoura: { name: "岬町", lat: 34.318964, lon: 135.142347, tideHc: 1 },
+  nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tidePc: 27, tideHc: 3, amedasCode: "62101", amedasName: "関空" },   // 岸和田(近傍代用)
+  fukenoura: { name: "岬町", lat: 34.318964, lon: 135.142347, tidePc: 27, tideHc: 1, amedasCode: "62101", amedasName: "関空" },
+  hamanomiya: { name: "浜の宮", lat: 34.152, lon: 135.176, tidePc: 30, tideHc: 11, amedasCode: "65042", amedasName: "和歌山" }, // 和歌山港(hc=11)
 };
-const AMEDAS_CODE = "62101"; // 関空島アメダス(両スポット共通の実測基準)
-const TIDE_PC = 27;          // 大阪府
 const FORECAST_DAYS = 16;    // Open-Meteoが返せる最大日数
 
 function getSavedSpot() {
@@ -347,6 +346,8 @@ let currentSpot = getSavedSpot();
 
 /*
   月別バイアス補正テーブル。monthly_bias.json (analyze.pyの出力)を読み込んで使う。
+  関空アメダスを基準に算出したものなので、正確には「関空・二色浜・岬町」に対して
+  適用してきた値。浜の宮(和歌山)への適用は近似であることに留意。
   取得に失敗した場合は補正なし(全て0)にフォールバックする。
 */
 let MONTHLY_BIAS_MS = {
@@ -398,7 +399,7 @@ function renderBiasInsight() {
 
   el.innerHTML = `
     <div class="insight-box">
-      <div class="insight-title">予報のクセ(過去3年の実測との比較)</div>
+      <div class="insight-title">予報のクセ(過去3年の実測との比較・関空基準)</div>
       <ul>${lines.join("")}</ul>
       <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="insight-link">気象庁の天気図を見る</a>
     </div>
@@ -508,11 +509,16 @@ async function fetchForecast() {
 }
 
 const KIX_ACTUAL_LAT = 34.433, KIX_ACTUAL_LON = 135.232; // 関空島そのものの座標
+const WAKAYAMA_ACTUAL_LAT = 34.235, WAKAYAMA_ACTUAL_LON = 135.192; // 和歌山地方気象台付近の座標
 
-async function fetchKixOwnForecast() {
-  // 「関空」列の未来推定(補正予報)は、選択中スポットの予報ではなく
-  // 関空そのものの座標での予報 + バイアス補正を使う必要があるため、別途取得する。
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${KIX_ACTUAL_LAT}&longitude=${KIX_ACTUAL_LON}` +
+async function fetchOwnStationForecast() {
+  // 「実況/予測」列の未来推定(補正予報)は、選択中スポットの予報ではなく
+  // 実測基準地点(関空 or 和歌山)そのものの座標での予報 + バイアス補正を使う必要があるため、別途取得する。
+  const spot = SPOTS[currentSpot];
+  const isWakayama = spot.amedasCode === "65042";
+  const lat = isWakayama ? WAKAYAMA_ACTUAL_LAT : KIX_ACTUAL_LAT;
+  const lon = isWakayama ? WAKAYAMA_ACTUAL_LON : KIX_ACTUAL_LON;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=wind_speed_10m,wind_direction_10m` +
     `&models=jma_gsm` +
     `&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=${FORECAST_DAYS}&past_days=1`;
@@ -529,7 +535,7 @@ async function fetchKixOwnForecast() {
     });
     return map;
   } catch (e) {
-    console.warn("関空自身の予報取得に失敗", e);
+    console.warn("実測基準地点そのものの予報取得に失敗", e);
     return {};
   }
 }
@@ -577,12 +583,13 @@ function amedasDirCodeToDeg(code) {
 }
 
 async function fetchAmedasNow() {
+  const spot = SPOTS[currentSpot];
   const latestYmdhm = await fetchAmedasLatestTime();
   const ts = `${latestYmdhm}00`;
   const url = `https://www.jma.go.jp/bosai/amedas/data/map/${ts}.json`;
   const res = await fetch(url);
   const data = await res.json();
-  const station = data[AMEDAS_CODE];
+  const station = data[spot.amedasCode];
   if (!station) return null;
   return {
     windMs: station.wind ? station.wind[0] : null,
@@ -593,6 +600,7 @@ async function fetchAmedasNow() {
 async function fetchAmedasHistoryForDate(targetDate, maxHour) {
   // 指定した日付の実際の毎時観測値を取得する(3時間ブロック単位のAPIを使用)。
   // maxHour: この時刻までを取得する(今日なら現在時刻まで、前日なら表示範囲の最後まで)。
+  const spot = SPOTS[currentSpot];
   const y = targetDate.getFullYear();
   const m = String(targetDate.getMonth() + 1).padStart(2, "0");
   const d = String(targetDate.getDate()).padStart(2, "0");
@@ -602,7 +610,7 @@ async function fetchAmedasHistoryForDate(targetDate, maxHour) {
   const result = {};
   for (const bs of blockStarts) {
     const h3 = String(bs).padStart(2, "0");
-    const url = `https://www.jma.go.jp/bosai/amedas/data/point/${AMEDAS_CODE}/${dateStr}_${h3}.json`;
+    const url = `https://www.jma.go.jp/bosai/amedas/data/point/${spot.amedasCode}/${dateStr}_${h3}.json`;
     try {
       const res = await fetch(url);
       if (!res.ok) continue;
@@ -683,15 +691,15 @@ async function render() {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  let forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, kixOwnForecast;
+  let forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, ownStationForecast;
   try {
-    [forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, kixOwnForecast] = await Promise.all([
+    [forecast, amedasNow, amedasHistoryToday, amedasHistoryYesterday, precipProbMap, ownStationForecast] = await Promise.all([
       fetchForecast(),
       fetchAmedasNow().catch(() => null),
       fetchAmedasHistoryForDate(now, now.getHours()).catch(() => ({})),
       fetchAmedasHistoryForDate(yesterday, 19).catch(() => ({})),
       fetchPrecipProbability(),
-      fetchKixOwnForecast(),
+      fetchOwnStationForecast(),
     ]);
   } catch (e) {
     container.innerHTML = `<div class="error-msg">データ取得に失敗しました(${e.message})。時間をおいて再読み込みしてください。</div>`;
@@ -718,7 +726,7 @@ async function render() {
 
     const rawWind = forecast.hourly.wind_speed_10m[i];
     const windDir = forecast.hourly.wind_direction_10m[i];
-    const kixOwn = kixOwnForecast[times[i]] || null;
+    const ownStation = ownStationForecast[times[i]] || null;
 
     if (!rowsByDate.has(key)) rowsByDate.set(key, { date: t, rows: [] });
     rowsByDate.get(key).rows.push({
@@ -730,8 +738,8 @@ async function render() {
       temp: forecast.hourly.temperature_2m[i],
       wind: rawWind,
       windDir,
-      kixOwnWind: kixOwn ? kixOwn.wind : null,
-      kixOwnDir: kixOwn ? kixOwn.dir : null,
+      ownStationWind: ownStation ? ownStation.wind : null,
+      ownStationDir: ownStation ? ownStation.dir : null,
       state: isPast ? "past" : (isNow ? "now" : "future"),
     });
   }
@@ -747,7 +755,12 @@ async function render() {
     dateEntries = dateEntries.slice(0, cutoffIndex);
   }
   const tideDataAll = await loadTideData();
-  const tideData = tideDataAll[String(SPOTS[currentSpot].tideHc)] || {};
+  const spotTidePc = SPOTS[currentSpot].tidePc;
+  const spotTideHc = SPOTS[currentSpot].tideHc;
+  const tideKey = `${spotTidePc}_${spotTideHc}`;
+  const tideData = tideDataAll[tideKey] || {};
+
+  const stationLabel = SPOTS[currentSpot].amedasName;
 
   const dayBlockFn = (entry) => {
     const d = entry.date;
@@ -755,33 +768,31 @@ async function render() {
     const rows = entry.rows;
 
     const rowsHtml = rows.map(r => {
-      const kixCorrected = r.state === "future";
+      const stationCorrected = r.state === "future";
       const hourKey = r.time.getHours();
-      let kixValueNum, kixValue, kixDir;
+      let stationValueNum, stationValue, stationDir;
       const historyForThisDate = amedasHistoryByDate[dateKey(r.time)] || {};
-      if (kixCorrected) {
-        // 関空そのものの座標での予報にバイアス補正をかける(選択中スポットの予報とは別物)
-        kixValueNum = applyBias(r.kixOwnWind, r.time);
-        kixValue = fmt(kixValueNum, 1);
-        kixDir = r.kixOwnDir;
+      if (stationCorrected) {
+        // 実測基準地点そのものの座標での予報にバイアス補正をかける(選択中スポットの予報とは別物)
+        stationValueNum = applyBias(r.ownStationWind, r.time);
+        stationValue = fmt(stationValueNum, 1);
+        stationDir = r.ownStationDir;
       } else if (r.state === "now") {
         // 現在時刻の行は「今この瞬間」の最新観測値を優先表示する。
-        // (時刻ちょうどの値より、直近のリアルタイム値の方が
-        //  行く/行かないの判断には実用的なため)
         if (amedasNow && amedasNow.windMs != null) {
-          kixValueNum = amedasNow.windMs;
-          kixDir = amedasNow.windDir;
+          stationValueNum = amedasNow.windMs;
+          stationDir = amedasNow.windDir;
         } else {
           const hist = historyForThisDate[hourKey];
-          kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
-          kixDir = hist ? hist.windDir : null;
+          stationValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
+          stationDir = hist ? hist.windDir : null;
         }
-        kixValue = fmt(kixValueNum, 1);
+        stationValue = fmt(stationValueNum, 1);
       } else {
         const hist = historyForThisDate[hourKey];
-        kixValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
-        kixDir = hist ? hist.windDir : null;
-        kixValue = fmt(kixValueNum, 1);
+        stationValueNum = (hist && hist.windMs != null) ? hist.windMs : null;
+        stationDir = hist ? hist.windDir : null;
+        stationValue = fmt(stationValueNum, 1);
       }
 
       return `
@@ -800,13 +811,13 @@ async function render() {
         </td>
         <td class="muted">–</td>
         <td class="muted">${(() => { const v = tideCmAtHour(tideDay, r.time.getHours()); return v != null ? `${fmt(v,0)}cm` : "–"; })()}</td>
-        <td class="${kixCorrected ? 'corrected' : 'muted'}">
+        <td class="${stationCorrected ? 'corrected' : 'muted'}">
           <div class="wind-cell">
             <div class="wind-row">
-              ${kixDir != null ? windDirArrowSvg(kixDir, kixValueNum) : ''}
-              <span>${kixValue}</span>
+              ${stationDir != null ? windDirArrowSvg(stationDir, stationValueNum) : ''}
+              <span>${stationValue}</span>
             </div>
-            ${kixCorrected ? '<span class="corrected-tag">予測</span>' : ''}
+            ${stationCorrected ? '<span class="corrected-tag">予測</span>' : ''}
             ${r.state === 'now' ? '<span class="corrected-tag" style="color:var(--ocean-deep);background:#E4F0FA;">現在</span>' : ''}
           </div>
         </td>
@@ -831,7 +842,7 @@ async function render() {
             <thead>
               <tr>
                 <th>時</th><th>天気</th><th>降水</th><th>気温</th><th>風</th><th>沿岸</th><th>潮汐</th>
-                <th>関空<br><span style="font-weight:400;font-size:0.55rem;">実況/予測</span></th>
+                <th>${stationLabel}<br><span style="font-weight:400;font-size:0.55rem;">実況/予測</span></th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
