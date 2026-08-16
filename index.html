@@ -202,23 +202,40 @@
     border: 2px solid var(--ocean-mid);
     border-radius: 0;
     background: #F4FAFD;
-    padding: 0.8rem 0.6rem;
+    padding: 0.5rem 0.6rem;
     margin: 0;
   }
   .insight-box .insight-title {
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--ocean-deep);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.2rem;
+    line-height: 1.2;
+  }
+  .insight-box .insight-title:not(:first-child) {
+    margin-top: 0.4rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border);
+  }
+  .insight-guide {
+    margin: 0;
+    padding-left: 1rem;
+    font-size: 0.62rem;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+  .insight-guide li {
+    margin-bottom: 0.1rem;
   }
   .insight-box ul {
     margin: 0;
-    padding-left: 1.1rem;
-    font-size: 0.74rem;
+    padding-left: 1rem;
+    font-size: 0.64rem;
     color: var(--text-primary);
+    line-height: 1.25;
   }
   .insight-box li {
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.15rem;
   }
   .insight-box li:last-child {
     margin-bottom: 0;
@@ -226,9 +243,9 @@
   .insight-link {
     display: block;
     text-align: right;
-    font-size: 0.72rem;
+    font-size: 0.62rem;
     color: var(--ocean-mid);
-    margin-top: 0.4rem;
+    margin-top: 0.2rem;
   }
   .loading {
     text-align: center;
@@ -387,7 +404,7 @@ function renderBiasInsight() {
     lines.push(
       `<li><strong>${monthList(worst)}</strong>は予報が実測より平均${Math.abs(
         worst.reduce((s, e) => s + e.bias, 0) / worst.length
-      ).toFixed(1)}m/s弱く出やすい月です。海風・季節風の影響が強く、モデルが弱めに見積もる傾向があります。</li>`
+      ).toFixed(1)}m/s弱く出やすい月です。海風・季節風の影響が強く、実測値と比べるとモデルが弱いケースが多いです。</li>`
     );
   }
   if (best.length) {
@@ -398,9 +415,21 @@ function renderBiasInsight() {
     );
   }
 
+  const isKixBased = SPOTS[currentSpot].amedasCode === "62101";
+  const titleSuffix = isKixBased
+    ? "・関空基準"
+    : "・関空基準を代用(和歌山専用の検証は未実施)";
+  const stationName = SPOTS[currentSpot].amedasName;
+
   el.innerHTML = `
     <div class="insight-box">
-      <div class="insight-title">予報のクセ(過去3年の実測との比較・関空基準)</div>
+      <div class="insight-title">このサイトの見方</div>
+      <ul class="insight-guide">
+        <li><strong>風</strong>: 気象庁MSMモデル(5km解像度)による予報値</li>
+        <li><strong>実況/現在</strong>: 近くの実測風速計(${stationName})のリアルタイム値</li>
+        <li><strong>予測</strong>: 過去3年の実測データをもとに補正した予報値</li>
+      </ul>
+      <div class="insight-title">予報のクセ(過去3年の実測との比較${titleSuffix})</div>
       <ul>${lines.join("")}</ul>
       <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="insight-link">気象庁の天気図を見る</a>
     </div>
