@@ -609,7 +609,7 @@ async function fetchAmedasLatestTime() {
 function amedasDirCodeToDeg(code) {
   // 気象庁アメダスの風向コード(0=静穏, 1〜16=北から時計回り22.5度刻み)を角度に変換
   if (code == null || code === 0) return null;
-  return (code - 1) * 22.5;
+  return (code + 1) * 22.5;
 }
 
 async function fetchAmedasNow() {
