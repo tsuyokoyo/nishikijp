@@ -4,349 +4,342 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>二色浜と岬町と浜の宮.JP | ウィングフォイル風予報</title>
-<meta name="description" content="関西空港・和歌山地方気象台の実測風速データと過去3年分の誤差検証にもとづく補正予報で、二色浜・岬町・浜の宮のウィングフォイル可否を判断できるサイト。">
-
+<meta name="description" content="関西空港・和歌山地方気象台の実測風速データにもとづく、二色浜・岬町・浜の宮のウィングフォイル可否を判断できるサイト。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="二色浜と岬町と浜の宮.JP">
-<meta property="og:description" content="関西空港・和歌山の実測風速と補正予報で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
+<meta property="og:description" content="関西空港・和歌山の実測風速で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
 <meta property="og:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <meta property="og:url" content="https://tsuyokoyo.github.io/nishikijp/">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="二色浜と岬町と浜の宮.JP">
-<meta name="twitter:description" content="関西空港・和歌山の実測風速と補正予報で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
+<meta name="twitter:description" content="関西空港・和歌山の実測風速で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
 <meta name="twitter:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <link rel="icon" href="logo.png" type="image/png">
 <style>
-  :root {
-    --ocean-deep: #0B5FA5;
-    --ocean-mid: #1D82C9;
-    --ocean-light: #4FC3E8;
-    --header-vivid: #006ECB;
-    --thead-blue: #149BDF;
-    --caution: #E8734A;
-    --bg-page: #EAF4FB;
-    --card: #FFFFFF;
-    --text-primary: #10324A;
-    --text-secondary: #5C7A91;
-    --border: #D6E7F2;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
-    background: var(--bg-page);
-    color: var(--text-primary);
-    line-height: 1.5;
-    overflow-x: hidden;
-  }
-  header {
-    background: #006ECB;
-    color: white;
-    padding: 0;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    position: sticky;
-    top: 0;
-    z-index: 20;
-  }
-  header h1 {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 600;
-    font-style: italic;
-    letter-spacing: 0.02em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-  }
-  .header-logo {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-  }
-  .container {
-    max-width: 760px;
-    margin: 0 auto 2rem;
-    padding: 0;
-  }
-  .day-block {
-    margin-top: 1rem;
-  }
-  .day-block:first-of-type {
-    margin-top: 0.8rem;
-  }
-  .day-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem 0.5rem;
-    background: #4690FF;
-    color: #fff;
-  }
-  .day-heading.sunday {
-    background: #FF5353;
-  }
-  .day-heading .date {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .calendar-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-  .day-heading .weekday {
-    font-size: 0.75rem;
-    color: #fff;
-  }
-  .tide-summary-row {
-    padding: 0.05rem 0.5rem;
-    font-size: 0.6rem;
-    line-height: 1.2;
-    color: var(--text-secondary);
-    background: var(--card);
-  }
-  .table-wrap {
-    background: var(--card);
-    box-shadow: 0 2px 8px rgba(11,95,165,0.08);
-  }
-  table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-    font-size: 0.92rem;
-  }
-  th {
-    text-align: center;
-    padding: 0.08rem 0.1rem;
-    color: #E4F0FA;
-    font-weight: 700;
-    border-bottom: 1px solid var(--border);
-    background: var(--thead-blue);
-    overflow: hidden;
-    font-size: 0.75rem;
-    line-height: 1.3;
-  }
-  td {
-    text-align: center;
-    padding: 0.38rem 0.1rem;
-    border-bottom: 1px solid var(--border);
-    overflow: hidden;
-    color: #000;
-    font-weight: 700;
-  }
-  tr:last-child td { border-bottom: none; }
-  tr.now-row { background: rgba(79,195,232,0.14); }
-  tr.now-row td:first-child { font-weight: 700; color: var(--ocean-deep); }
-  .weather-icon, .rain-icon {
-    display: inline-block;
-    width: 24px; height: 24px;
-    vertical-align: middle;
-  }
-  .rain-amount {
-    display: block;
-    font-size: 0.68rem;
-    color: var(--text-secondary);
-  }
-  .wind-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0px;
-  }
-  .wind-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-  }
-  .wind-dir-arrow {
-    display: inline-block;
-    width: 22px; height: 22px;
-    flex-shrink: 0;
-  }
-  .corrected { color: var(--ocean-mid); font-weight: 700; }
-  .corrected-tag {
-    display: block;
-    font-size: 0.6rem;
-    color: var(--ocean-mid);
-    background: #E3F1FA;
-    padding: 0 3px;
-    border-radius: 3px;
-  }
-  .muted { color: var(--text-secondary); }
-  .legend {
-    display: flex; gap: 0.7rem; flex-wrap: wrap;
-    font-size: 0.65rem; color: var(--text-secondary);
-    margin: 0.6rem 0 0.2rem; padding: 0 0.4rem;
-  }
-  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; }
-  footer {
-    text-align: center;
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    padding: 1.5rem 0.6rem;
-  }
-  .error-msg {
-    font-size: 0.75rem;
-    color: var(--caution);
-    padding: 0.8rem;
-  }
-  .insight-box {
-    border: 2px solid var(--ocean-mid);
-    border-radius: 0;
-    background: #F4FAFD;
-    padding: 0.5rem 0.6rem;
-    margin: 0;
-  }
-  .insight-box .insight-title {
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--ocean-deep);
-    margin-bottom: 0.2rem;
-    line-height: 1.2;
-  }
-  .insight-box .insight-title:not(:first-child) {
-    margin-top: 0.4rem;
-    padding-top: 0.35rem;
-    border-top: 1px solid var(--border);
-  }
-  .insight-guide {
-    margin: 0;
-    padding-left: 1rem;
-    font-size: 0.62rem;
-    color: var(--text-primary);
-    line-height: 1.3;
-  }
-  .insight-guide li {
-    margin-bottom: 0.1rem;
-  }
-  .insight-box ul {
-    margin: 0;
-    padding-left: 1rem;
-    font-size: 0.64rem;
-    color: var(--text-primary);
-    line-height: 1.25;
-  }
-  .insight-box li {
-    margin-bottom: 0.15rem;
-  }
-  .insight-box li:last-child {
-    margin-bottom: 0;
-  }
-  .insight-link {
-    display: block;
-    text-align: right;
-    font-size: 0.62rem;
-    color: var(--ocean-mid);
-    margin-top: 0.2rem;
-  }
-  .loading {
-    text-align: center;
-    color: var(--text-secondary);
-    padding: 2rem;
-    font-size: 0.85rem;
-  }
-  .prev-day-toggle {
-    margin: 0;
-  }
-  .prev-day-toggle + .day-block {
-    margin-top: 0;
-  }
-  .prev-day-toggle[open] > .day-block:first-of-type {
-    margin-top: 0;
-  }
-  .prev-day-toggle summary {
-    list-style: none;
-    display: inline-block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--ocean-deep);
-    background: #fff;
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    padding: 0.22rem 0.7rem;
-    margin-left: 0.6rem;
-    cursor: pointer;
-  }
-  .prev-day-toggle summary::-webkit-details-marker {
-    display: none;
-  }
-  .prev-day-toggle .label-open { display: none; }
-  .prev-day-toggle[open] .label-closed { display: none; }
-  .prev-day-toggle[open] .label-open { display: inline; }
-  .spot-switcher {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.5rem 0.4rem;
-    position: sticky;
-    top: 40px;
-    z-index: 19;
-    background: var(--bg-page);
-    border-bottom: 2px solid var(--border);
-  }
-  .spot-btn {
-    flex: 1;
-    padding: 0.5rem 0.4rem;
-    border-radius: 8px;
-    border: 2px solid var(--ocean-mid);
-    background: var(--card);
-    color: var(--ocean-mid);
-    font-weight: 700;
-    font-size: 0.78rem;
-    cursor: pointer;
-  }
-  .spot-btn.active {
-    background: var(--ocean-mid);
-    color: #fff;
-  }
+:root {
+  --ocean-deep: #0B5FA5;
+  --ocean-mid: #1D82C9;
+  --ocean-light: #4FC3E8;
+  --header-vivid: #006ECB;
+  --thead-blue: #149BDF;
+  --caution: #E8734A;
+  --bg-page: #EAF4FB;
+  --card: #FFFFFF;
+  --text-primary: #10324A;
+  --text-secondary: #5C7A91;
+  --border: #D6E7F2;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+header {
+  background: #006ECB;
+  color: white;
+  padding: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.header-logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.container {
+  max-width: 760px;
+  margin: 0 auto 2rem;
+  padding: 0;
+}
+.day-block {
+  margin-top: 1rem;
+}
+.day-block:first-of-type {
+  margin-top: 0.8rem;
+}
+.day-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: #4690FF;
+  color: #fff;
+}
+.day-heading.sunday {
+  background: #FF5353;
+}
+.day-heading .date {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+.calendar-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.day-heading .weekday {
+  font-size: 0.75rem;
+  color: #fff;
+}
+.tide-summary-row {
+  padding: 0.05rem 0.5rem;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  background: var(--card);
+}
+.table-wrap {
+  background: var(--card);
+  box-shadow: 0 2px 8px rgba(11,95,165,0.08);
+}
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+th {
+  text-align: center;
+  padding: 0.08rem 0.1rem;
+  color: #E4F0FA;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  background: var(--thead-blue);
+  overflow: hidden;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+td {
+  text-align: center;
+  padding: 0.38rem 0.1rem;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  color: #000;
+  font-weight: 700;
+}
+tr:last-child td { border-bottom: none; }
+tr.now-row { background: rgba(79,195,232,0.14); }
+tr.now-row td:first-child { font-weight: 700; color: var(--ocean-deep); }
+.weather-icon, .rain-icon {
+  display: inline-block;
+  width: 24px; height: 24px;
+  vertical-align: middle;
+}
+.rain-amount {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+.wind-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+}
+.wind-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.wind-dir-arrow {
+  display: inline-block;
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+}
+.corrected { color: var(--ocean-mid); font-weight: 700; }
+.corrected-tag {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--ocean-mid);
+  background: #E3F1FA;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.muted { color: var(--text-secondary); }
+.legend {
+  display: flex; gap: 0.7rem; flex-wrap: wrap;
+  font-size: 0.65rem; color: var(--text-secondary);
+  margin: 0.6rem 0 0.2rem; padding: 0 0.4rem;
+}
+.dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; }
+footer {
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  padding: 1.5rem 0.6rem;
+}
+.error-msg {
+  font-size: 0.75rem;
+  color: var(--caution);
+  padding: 0.8rem;
+}
+.insight-box {
+  border: 2px solid var(--ocean-mid);
+  border-radius: 0;
+  background: #F4FAFD;
+  padding: 0.5rem 0.6rem;
+  margin: 0;
+}
+.insight-box .insight-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ocean-deep);
+  margin-bottom: 0.2rem;
+  line-height: 1.2;
+}
+.insight-box .insight-title:not(:first-child) {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+.insight-guide {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.62rem;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.insight-guide li {
+  margin-bottom: 0.1rem;
+}
+.insight-box ul {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.64rem;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.insight-box li {
+  margin-bottom: 0.15rem;
+}
+.insight-box li:last-child {
+  margin-bottom: 0;
+}
+.insight-link {
+  display: block;
+  text-align: right;
+  font-size: 0.62rem;
+  color: var(--ocean-mid);
+  margin-top: 0.2rem;
+}
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+  font-size: 0.85rem;
+}
+.prev-day-toggle {
+  margin: 0;
+}
+.prev-day-toggle + .day-block {
+  margin-top: 0;
+}
+.prev-day-toggle[open] > .day-block:first-of-type {
+  margin-top: 0;
+}
+.prev-day-toggle summary {
+  list-style: none;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ocean-deep);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 0.22rem 0.7rem;
+  margin-left: 0.6rem;
+  cursor: pointer;
+}
+.prev-day-toggle summary::-webkit-details-marker {
+  display: none;
+}
+.prev-day-toggle .label-open { display: none; }
+.prev-day-toggle[open] .label-closed { display: none; }
+.prev-day-toggle[open] .label-open { display: inline; }
+.spot-switcher {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.4rem;
+  position: sticky;
+  top: 40px;
+  z-index: 19;
+  background: var(--bg-page);
+  border-bottom: 2px solid var(--border);
+}
+.spot-btn {
+  flex: 1;
+  padding: 0.5rem 0.4rem;
+  border-radius: 8px;
+  border: 2px solid var(--ocean-mid);
+  background: var(--card);
+  color: var(--ocean-mid);
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.spot-btn.active {
+  background: var(--ocean-mid);
+  color: #fff;
+}
 </style>
 </head>
 <body>
-
 <header>
-  <h1><img src="logo.png" alt="二色浜と岬町と浜の宮.JP ロゴ" class="header-logo">二色浜と岬町と浜の宮.JP</h1>
+<h1><img src="logo.png" alt="二色浜と岬町と浜の宮.JP ロゴ" class="header-logo">二色浜と岬町と浜の宮.JP</h1>
 </header>
 <noscript>
-  <p style="padding:1rem;">二色浜と岬町と浜の宮.JPは、関西空港・和歌山地方気象台の実測風速データと補正予報で二色浜・岬町・浜の宮のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
+<p style="padding:1rem;">二色浜と岬町と浜の宮.JPは、関西空港・和歌山地方気象台の実測風速データで二色浜・岬町・浜の宮のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
 </noscript>
-
 <div class="container">
-  <div class="spot-switcher" id="spot-switcher"></div>
-
-  <div id="bias-insight"></div>
-
-  <div class="legend">
-    <span>右列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
-    <span><span class="dot" style="background:var(--ocean-mid);"></span>補正後の予測(未来)</span>
-  </div>
-
-  <div id="days-container">
-    <div class="loading">読み込み中…</div>
-  </div>
-
-  <footer>
-    データ: 気象庁アメダス(スポットに応じた最寄り観測点) / Open-Meteo / tide736.net<br>
-    予報の補正値は過去3年の実測との誤差統計に基づく参考値です(関空基準・JMA GSMで算出したもの)<br>
-    現在の予報モデルは気象庁MSM(メソモデル、5km解像度)です。短期(3〜4日程度)の高解像度予報を優先し、それ以降の日付は表示されません
-  </footer>
+<div class="spot-switcher" id="spot-switcher"></div>
+<div id="bias-insight"></div>
+<div class="legend">
+<span>右列: <span class="dot" style="background:var(--text-secondary);"></span>実況(過去〜現在)</span>
+<span><span class="dot" style="background:var(--ocean-mid);"></span>予報(未来・補正なし)</span>
+</div>
+<div id="days-container">
+<div class="loading">読み込み中…</div>
+</div>
+<footer>
+データ: 気象庁アメダス(スポットに応じた最寄り観測点) / Open-Meteo / tide736.net<br>
+現在の予報モデルは気象庁MSM(メソモデル、5km解像度)です。短期(3〜4日程度)の高解像度予報を優先し、それ以降の日付は表示されません
+</footer>
 </div>
 
 <script>
 /* ===================== 設定 ===================== */
 const SPOTS = {
-  nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tidePc: 27, tideHc: 3, amedasCode: "62101", amedasName: "関空" },   // 岸和田(近傍代用)
+  nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tidePc: 27, tideHc: 3, amedasCode: "62101", amedasName: "関空" }, // 岸和田(近傍代用)
   fukenoura: { name: "岬町", lat: 34.318964, lon: 135.142347, tidePc: 27, tideHc: 1, amedasCode: "62101", amedasName: "関空" },
   hamanomiya: { name: "浜の宮", lat: 34.152, lon: 135.176, tidePc: 30, tideHc: 11, amedasCode: "65042", amedasName: "和歌山" }, // 和歌山港(hc=11)
 };
-const FORECAST_DAYS = 16;    // Open-Meteoが返せる最大日数
+
+const FORECAST_DAYS = 16; // Open-Meteoが返せる最大日数
 
 function getSavedSpot() {
   try {
@@ -362,94 +355,38 @@ function saveSpot(spot) {
 
 let currentSpot = getSavedSpot();
 
-/*
-  月別バイアス補正テーブル。monthly_bias.json (analyze.pyの出力)を読み込んで使う。
-  関空アメダスを基準に算出したものなので、正確には「関空・二色浜・岬町」に対して
-  適用してきた値。浜の宮(和歌山)への適用は近似であることに留意。
-  取得に失敗した場合は補正なし(全て0)にフォールバックする。
-*/
-let MONTHLY_BIAS_MS = {
-  1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0
-};
-
-async function loadMonthlyBias() {
-  try {
-    const res = await fetch("monthly_bias.json");
-    if (!res.ok) throw new Error("not found");
-    const data = await res.json();
-    MONTHLY_BIAS_MS = { ...MONTHLY_BIAS_MS, ...data };
-  } catch (e) {
-    console.warn("monthly_bias.json の読み込みに失敗。補正なしで表示します。", e);
-  }
-}
-
 function renderBiasInsight() {
+  // 全国どの地点でも通用する検証済みの補正値は存在しないため、補正は行わず、
+  // 「見方」の説明だけを表示する(以前は関空限定の月別バイアス統計を表示していたが撤去した)。
   const el = document.getElementById("bias-insight");
-  const entries = Object.entries(MONTHLY_BIAS_MS)
-    .map(([m, v]) => ({ month: Number(m), bias: Number(v) }))
-    .filter(e => e.bias !== 0);
-
-  if (entries.length === 0) { el.innerHTML = ""; return; }
-
-  // ズレが大きい順(過小評価が大きい=biasがより負)に並べる
-  const sortedByUnderestimate = [...entries].sort((a, b) => a.bias - b.bias);
-  const worst = sortedByUnderestimate.filter(e => e.bias <= -0.9).slice(0, 4);
-  const best = [...entries].sort((a, b) => Math.abs(a.bias) - Math.abs(b.bias))
-    .filter(e => Math.abs(e.bias) <= 0.6).slice(0, 4);
-
-  const monthList = arr => arr.map(e => `${e.month}月`).join("・");
-
-  const lines = [];
-  if (worst.length) {
-    lines.push(
-      `<li><strong>${monthList(worst)}</strong>は予報が実測より平均${Math.abs(
-        worst.reduce((s, e) => s + e.bias, 0) / worst.length
-      ).toFixed(1)}m/s弱く出やすい月です。海風・季節風の影響が強く、実測値と比べるとモデルが弱いケースが多いです。</li>`
-    );
-  }
-  if (best.length) {
-    lines.push(
-      `<li><strong>${monthList(best)}</strong>は予報と実測のズレが比較的小さい月です(平均${(
-        best.reduce((s, e) => s + Math.abs(e.bias), 0) / best.length
-      ).toFixed(1)}m/s前後)。</li>`
-    );
-  }
-
-  const isKixBased = SPOTS[currentSpot].amedasCode === "62101";
-  const titleSuffix = isKixBased
-    ? "・関空基準"
-    : "・関空基準を代用(和歌山専用の検証は未実施)";
   const stationName = SPOTS[currentSpot].amedasName;
-
   el.innerHTML = `
     <div class="insight-box">
       <div class="insight-title">このサイトの見方</div>
       <ul class="insight-guide">
         <li><strong>風</strong>: 気象庁MSMモデル(5km解像度)による予報値</li>
         <li><strong>実況/現在</strong>: 近くの実測風速計(${stationName})のリアルタイム値</li>
-        <li><strong>予測</strong>: 過去3年の実測データをもとに補正した予報値</li>
+        <li><strong>予報</strong>: 実測基準地点そのものの座標における生の予報値(補正なし)</li>
       </ul>
-      <div class="insight-title">予報のクセ(過去3年の実測との比較${titleSuffix})</div>
-      <ul>${lines.join("")}</ul>
       <a href="https://www.jma.go.jp/bosai/weather_map/" target="_blank" rel="noopener" class="insight-link">気象庁の天気図を見る</a>
     </div>
   `;
 }
 
 const WEATHER_CATEGORY = {
-  0:"sun",              // 快晴
-  1:"sun-cloud-light",  // 晴れ時々曇り
-  2:"sun-cloud",        // 曇り時々晴れ
-  3:"cloud",            // 曇り
+  0:"sun", // 快晴
+  1:"sun-cloud-light", // 晴れ時々曇り
+  2:"sun-cloud", // 曇り時々晴れ
+  3:"cloud", // 曇り
   45:"fog", 48:"fog",
   51:"cloud-drizzle", 53:"cloud-drizzle", 55:"cloud-drizzle", // 霧雨
   56:"cloud-drizzle", 57:"cloud-drizzle",
-  61:"cloud-drizzle",   // 弱い雨(曇り時々雨に近い)
+  61:"cloud-drizzle", // 弱い雨(曇り時々雨に近い)
   63:"rain", 65:"rain",
   66:"rain", 67:"rain",
   71:"snow-light", 77:"snow-light",
   73:"snow", 75:"snow", 85:"snow", 86:"snow",
-  80:"cloud-drizzle",   // 弱いにわか雨
+  80:"cloud-drizzle", // 弱いにわか雨
   81:"rain", 82:"rain",
   95:"thunder", 96:"thunder", 99:"thunder"
 };
@@ -467,6 +404,7 @@ function weatherIconSvg(code, precipMm, precipProb) {
   if (rainFamily.includes(cat) && (isTraceAmount || isLowProbability)) {
     cat = "cloud"; // 微小なトレース降水、または降水確率が低い場合は曇りマークにフォールバック
   }
+
   let inner = "";
   if (cat === "sun") {
     inner = '<circle cx="12" cy="12" r="5" fill="#F5B942"/>' +
@@ -503,6 +441,7 @@ function weatherIconSvg(code, precipMm, precipProb) {
   } else {
     inner = CLOUD_PATH;
   }
+
   return `<svg class="weather-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 }
 
@@ -514,19 +453,11 @@ function rainCellHtml(mm) {
 
 const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
-function applyBias(rawWindMs, dateObj) {
-  if (rawWindMs == null) return null;
-  const month = dateObj.getMonth() + 1;
-  const bias = MONTHLY_BIAS_MS[month] || 0;
-  return Math.max(0, rawWindMs - bias);
-}
-
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 /* ===================== データ取得 ===================== */
-
 async function fetchForecast() {
   const spot = SPOTS[currentSpot];
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lon}` +
@@ -542,8 +473,8 @@ const KIX_ACTUAL_LAT = 34.433, KIX_ACTUAL_LON = 135.232; // 関空島そのも�
 const WAKAYAMA_ACTUAL_LAT = 34.235, WAKAYAMA_ACTUAL_LON = 135.192; // 和歌山地方気象台付近の座標
 
 async function fetchOwnStationForecast() {
-  // 「実況/予測」列の未来推定(補正予報)は、選択中スポットの予報ではなく
-  // 実測基準地点(関空 or 和歌山)そのものの座標での予報 + バイアス補正を使う必要があるため、別途取得する。
+  // 「実況/予報」列の未来推定は、選択中スポットの予報ではなく
+  // 実測基準地点(関空 or 和歌山)そのものの座標での予報を使う必要があるため、別途取得する。
   const spot = SPOTS[currentSpot];
   const isWakayama = spot.amedasCode === "65042";
   const lat = isWakayama ? WAKAYAMA_ACTUAL_LAT : KIX_ACTUAL_LAT;
@@ -635,9 +566,10 @@ async function fetchAmedasHistoryForDate(targetDate, maxHour) {
   const m = String(targetDate.getMonth() + 1).padStart(2, "0");
   const d = String(targetDate.getDate()).padStart(2, "0");
   const dateStr = `${y}${m}${d}`;
-  const blockStarts = [6, 9, 12, 15, 18].filter(bs => bs <= maxHour);
 
+  const blockStarts = [6, 9, 12, 15, 18].filter(bs => bs <= maxHour);
   const result = {};
+
   for (const bs of blockStarts) {
     const h3 = String(bs).padStart(2, "0");
     const url = `https://www.jma.go.jp/bosai/amedas/data/point/${spot.amedasCode}/${dateStr}_${h3}.json`;
@@ -675,7 +607,6 @@ async function loadTideData() {
 }
 
 /* ===================== 描画 ===================== */
-
 function windDirArrowSvg(deg, speed) {
   const safeDeg = (deg == null) ? 0 : (deg + 180) % 360;
   const fillColor = (speed != null && speed >= 4) ? "#F5C518" : "#1D6FA0";
@@ -713,11 +644,10 @@ function tideCmAtHour(tideDay, hour) {
 }
 
 async function render() {
-  await loadMonthlyBias();
   renderBiasInsight();
+
   const container = document.getElementById("days-container");
   const now = new Date();
-
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
 
@@ -784,12 +714,12 @@ async function render() {
   if (cutoffIndex !== -1) {
     dateEntries = dateEntries.slice(0, cutoffIndex);
   }
+
   const tideDataAll = await loadTideData();
   const spotTidePc = SPOTS[currentSpot].tidePc;
   const spotTideHc = SPOTS[currentSpot].tideHc;
   const tideKey = `${spotTidePc}_${spotTideHc}`;
   const tideData = tideDataAll[tideKey] || {};
-
   const stationLabel = SPOTS[currentSpot].amedasName;
 
   const dayBlockFn = (entry) => {
@@ -802,9 +732,10 @@ async function render() {
       const hourKey = r.time.getHours();
       let stationValueNum, stationValue, stationDir;
       const historyForThisDate = amedasHistoryByDate[dateKey(r.time)] || {};
+
       if (stationCorrected) {
-        // 実測基準地点そのものの座標での予報にバイアス補正をかける(選択中スポットの予報とは別物)
-        stationValueNum = applyBias(r.ownStationWind, r.time);
+        // 実測基準地点そのものの座標での生の予報(補正なし)
+        stationValueNum = r.ownStationWind;
         stationValue = fmt(stationValueNum, 1);
         stationDir = r.ownStationDir;
       } else if (r.state === "now") {
@@ -826,33 +757,33 @@ async function render() {
       }
 
       return `
-      <tr class="${r.state === 'now' ? 'now-row' : ''}">
-        <td>${r.hourLabel}</td>
-        <td>${weatherIconSvg(r.weatherCode, r.rain, r.precipProb)}</td>
-        <td>${rainCellHtml(r.rain)}</td>
-        <td>${fmt(r.temp, 1)}°</td>
-        <td>
-          <div class="wind-cell">
-            <div class="wind-row">
-              ${windDirArrowSvg(r.windDir, r.wind)}
-              <span>${fmt(r.wind, 1)}</span>
+        <tr class="${r.state === 'now' ? 'now-row' : ''}">
+          <td>${r.hourLabel}</td>
+          <td>${weatherIconSvg(r.weatherCode, r.rain, r.precipProb)}</td>
+          <td>${rainCellHtml(r.rain)}</td>
+          <td>${fmt(r.temp, 1)}°</td>
+          <td>
+            <div class="wind-cell">
+              <div class="wind-row">
+                ${windDirArrowSvg(r.windDir, r.wind)}
+                <span>${fmt(r.wind, 1)}</span>
+              </div>
             </div>
-          </div>
-        </td>
-        <td class="muted">–</td>
-        <td class="muted">${(() => { const v = tideCmAtHour(tideDay, r.time.getHours()); return v != null ? `${fmt(v,0)}cm` : "–"; })()}</td>
-        <td class="${stationCorrected ? 'corrected' : 'muted'}">
-          <div class="wind-cell">
-            <div class="wind-row">
-              ${stationDir != null ? windDirArrowSvg(stationDir, stationValueNum) : ''}
-              <span>${stationValue}</span>
+          </td>
+          <td class="muted">–</td>
+          <td class="muted">${(() => { const v = tideCmAtHour(tideDay, r.time.getHours()); return v != null ? `${fmt(v,0)}cm` : "–"; })()}</td>
+          <td class="${stationCorrected ? 'corrected' : 'muted'}">
+            <div class="wind-cell">
+              <div class="wind-row">
+                ${stationDir != null ? windDirArrowSvg(stationDir, stationValueNum) : ''}
+                <span>${stationValue}</span>
+              </div>
+              ${stationCorrected ? '<span class="corrected-tag">予報</span>' : ''}
+              ${r.state === 'now' ? '<span class="corrected-tag" style="color:var(--ocean-deep);background:#E4F0FA;">現在</span>' : ''}
             </div>
-            ${stationCorrected ? '<span class="corrected-tag">予測</span>' : ''}
-            ${r.state === 'now' ? '<span class="corrected-tag" style="color:var(--ocean-deep);background:#E4F0FA;">現在</span>' : ''}
-          </div>
-        </td>
-      </tr>
-    `;
+          </td>
+        </tr>
+      `;
     }).join("");
 
     return `
@@ -872,7 +803,7 @@ async function render() {
             <thead>
               <tr>
                 <th>時</th><th>天気</th><th>降水</th><th>気温</th><th>風</th><th>沿岸</th><th>潮汐</th>
-                <th>${stationLabel}<br><span style="font-weight:400;font-size:0.55rem;">実況/予測</span></th>
+                <th>${stationLabel}<br><span style="font-weight:400;font-size:0.55rem;">実況/予報</span></th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
