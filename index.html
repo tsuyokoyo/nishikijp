@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>二色浜と岬町と浜の宮.JP | ウィングフォイル風予報</title>
-<meta name="description" content="関西空港・和歌山地方気象台の実測風速データにもとづく、二色浜・岬町・浜の宮のウィングフォイル可否を判断できるサイト。">
+<meta name="description" content="関西空港・和歌山地方気象台・川辺の実測風速データにもとづく、二色浜・岬町・浜の宮・塩屋浜海岸のウィングフォイル可否を判断できるサイト。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="二色浜と岬町と浜の宮.JP">
-<meta property="og:description" content="関西空港・和歌山の実測風速で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
+<meta property="og:description" content="関西空港・和歌山・川辺の実測風速で、二色浜・岬町・浜の宮・塩屋浜海岸のウィングフォイル可否をチェック。">
 <meta property="og:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <meta property="og:url" content="https://tsuyokoyo.github.io/nishikijp/">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="二色浜と岬町と浜の宮.JP">
-<meta name="twitter:description" content="関西空港・和歌山の実測風速で、二色浜・岬町・浜の宮のウィングフォイル可否をチェック。">
+<meta name="twitter:description" content="関西空港・和歌山・川辺の実測風速で、二色浜・岬町・浜の宮・塩屋浜海岸のウィングフォイル可否をチェック。">
 <meta name="twitter:image" content="https://tsuyokoyo.github.io/nishikijp/logo.png">
 <link rel="icon" href="logo.png" type="image/png">
 <style>
@@ -313,7 +313,7 @@ footer {
 <h1><img src="logo.png" alt="二色浜と岬町と浜の宮.JP ロゴ" class="header-logo">二色浜と岬町と浜の宮.JP</h1>
 </header>
 <noscript>
-<p style="padding:1rem;">二色浜と岬町と浜の宮.JPは、関西空港・和歌山地方気象台の実測風速データで二色浜・岬町・浜の宮のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
+<p style="padding:1rem;">二色浜と岬町と浜の宮.JPは、関西空港・和歌山地方気象台・川辺の実測風速データで二色浜・岬町・浜の宮・塩屋浜海岸のウィングフォイル可否をチェックできるサイトです。表示にはJavaScriptを有効にしてください。</p>
 </noscript>
 <div class="container">
 <div class="spot-switcher" id="spot-switcher"></div>
@@ -337,6 +337,7 @@ const SPOTS = {
   nikaihama: { name: "二色浜", lat: 34.436, lon: 135.339, tidePc: 27, tideHc: 3, amedasCode: "62101", amedasName: "関空" }, // 岸和田(近傍代用)
   fukenoura: { name: "岬町", lat: 34.318964, lon: 135.142347, tidePc: 27, tideHc: 1, amedasCode: "62101", amedasName: "関空" },
   hamanomiya: { name: "浜の宮", lat: 34.152, lon: 135.176, tidePc: 30, tideHc: 11, amedasCode: "65042", amedasName: "和歌山" }, // 和歌山港(hc=11)
+  shioyahama: { name: "塩屋浜海岸", lat: 33.885, lon: 135.130, tidePc: 30, tideHc: 9, amedasCode: "65201", amedasName: "川辺", stationLat: 33.89333, stationLon: 135.21667 }, // 御坊市。潮汐は最寄りの下津(hc=9)で代用
 };
 
 const FORECAST_DAYS = 16; // Open-Meteoが返せる最大日数
@@ -477,8 +478,8 @@ async function fetchOwnStationForecast() {
   // 実測基準地点(関空 or 和歌山)そのものの座標での予報を使う必要があるため、別途取得する。
   const spot = SPOTS[currentSpot];
   const isWakayama = spot.amedasCode === "65042";
-  const lat = isWakayama ? WAKAYAMA_ACTUAL_LAT : KIX_ACTUAL_LAT;
-  const lon = isWakayama ? WAKAYAMA_ACTUAL_LON : KIX_ACTUAL_LON;
+  const lat = spot.stationLat != null ? spot.stationLat : (isWakayama ? WAKAYAMA_ACTUAL_LAT : KIX_ACTUAL_LAT);
+  const lon = spot.stationLon != null ? spot.stationLon : (isWakayama ? WAKAYAMA_ACTUAL_LON : KIX_ACTUAL_LON);
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=wind_speed_10m,wind_direction_10m` +
     `&models=jma_msm` +
